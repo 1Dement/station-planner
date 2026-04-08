@@ -247,7 +247,17 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         }
       }
 
-      const wallAngle = bestWallAngle;
+      // Snap wall angle to nearest 90° (walls are axis-aligned)
+      let wallAngle = bestWallAngle;
+      const snapAngles = [0, Math.PI/2, Math.PI, -Math.PI/2, -Math.PI];
+      let minDiff = Infinity;
+      for (const sa of snapAngles) {
+        const diff = Math.abs(wallAngle - sa);
+        if (diff < minDiff) { minDiff = diff; wallAngle = sa; }
+      }
+
+      // Door opening direction from startAngle — determines which side panel opens
+      // Frame goes along wall, perpendicular to opening direction
       const cosA = Math.cos(wallAngle), sinA = Math.sin(wallAngle);
       const latchX = door.x + cosA * dw;
       const latchZ = door.z + sinA * dw;
@@ -283,10 +293,10 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.02, p.y));
       group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
 
-      // Wall above door — from door top to UNIFORM ceiling height
+      // Wall above door — exact width of door opening, uniform height
       const aboveH = UNIFORM_TOP - DOOR_H;
       if (aboveH > 0.05) {
-        const above = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.04, aboveH, WALL_THICK), wallMat);
+        const above = new THREE.Mesh(new THREE.BoxGeometry(dw, aboveH, WALL_THICK), wallMat);
         above.position.set(midX, DOOR_H + aboveH / 2, midZ);
         above.rotation.y = -wallAngle;
         above.castShadow = true;
