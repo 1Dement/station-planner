@@ -216,66 +216,79 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     group.add(cap);
   }
 
-  // === DOORS (3D with frame + panel in opening direction) ===
+  // === DOORS (aligned to nearest wall) ===
   if (data.doors) {
     const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x6B4226, roughness: 0.6, metalness: 0.1 });
-    const doorPanelMat = new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.7, metalness: 0.05 });
     const doorArcMat = new THREE.LineBasicMaterial({ color: 0xffc107, opacity: 0.6, transparent: true });
     const DOOR_H = 2.1;
+    const ABOVE_H = WALL_HEIGHT - DOOR_H; // uniform 0.9m above all doors
     const FRAME_W = 0.05;
+    const WALL_THICK = 0.20;
 
     for (const door of data.doors as DoorData[]) {
       const dw = door.width;
       const startRad = (door.startAngle || 0) * Math.PI / 180;
       const endRad = (door.endAngle || 90) * Math.PI / 180;
 
-      // Door frame (2 posts + top beam)
-      // Hinge side post
+      // Find nearest wall segment to align door frame
+      let bestWallAngle = startRad;
+      let bestDist = Infinity;
+      for (const ws of wallSegments) {
+        // Distance from door hinge to wall line
+        const wx = ws.x2 - ws.x1, wz = ws.z2 - ws.z1;
+        const len2 = wx * wx + wz * wz;
+        const t = Math.max(0, Math.min(1, ((door.x - ws.x1) * wx + (door.z - ws.z1) * wz) / len2));
+        const cx = ws.x1 + t * wx, cz = ws.z1 + t * wz;
+        const dist = Math.sqrt((door.x - cx) ** 2 + (door.z - cz) ** 2);
+        if (dist < bestDist && dist < 0.5) {
+          bestDist = dist;
+          bestWallAngle = Math.atan2(wz, wx);
+        }
+      }
+
+      // Frame aligned to wall
+      const wallAngle = bestWallAngle;
+      const cosA = Math.cos(wallAngle), sinA = Math.sin(wallAngle);
+
+      // Latch position along wall direction
+      const latchX = door.x + cosA * dw;
+      const latchZ = door.z + sinA * dw;
+
+      // Frame posts
       const hingePost = new THREE.Mesh(new THREE.BoxGeometry(FRAME_W, DOOR_H, FRAME_W), doorFrameMat);
       hingePost.position.set(door.x, DOOR_H / 2, door.z);
-      hingePost.castShadow = true;
       group.add(hingePost);
 
-      // Latch side post (at end of door width, along startAngle direction)
-      const latchX = door.x + Math.cos(startRad) * dw;
-      const latchZ = door.z + Math.sin(startRad) * dw;
       const latchPost = new THREE.Mesh(new THREE.BoxGeometry(FRAME_W, DOOR_H, FRAME_W), doorFrameMat);
       latchPost.position.set(latchX, DOOR_H / 2, latchZ);
-      latchPost.castShadow = true;
       group.add(latchPost);
 
       // Top beam
-      const beamLen = dw;
-      const beamGeo = new THREE.BoxGeometry(beamLen, FRAME_W, FRAME_W);
-      const beam = new THREE.Mesh(beamGeo, doorFrameMat);
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(dw, FRAME_W, FRAME_W), doorFrameMat);
       beam.position.set((door.x + latchX) / 2, DOOR_H, (door.z + latchZ) / 2);
-      beam.rotation.y = -startRad;
+      beam.rotation.y = -wallAngle;
       group.add(beam);
 
       // Door panel info for SceneEditor (movable)
       doorPanels.push({
-        hingeX: door.x,
-        hingeZ: door.z,
-        width: dw,
-        height: DOOR_H,
-        startAngle: startRad,
-        endAngle: endRad,
+        hingeX: door.x, hingeZ: door.z,
+        width: dw, height: DOOR_H,
+        startAngle: startRad, endAngle: endRad,
       });
 
-      // Arc on floor showing swing direction
+      // Arc on floor
       const arcStart = Math.min(startRad, endRad);
       const arcEnd = Math.max(startRad, endRad);
       const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, arcStart, arcEnd, false, 0);
       const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.02, p.y));
       group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
 
-      // Wall above door
-      const aboveDoorH = WALL_HEIGHT - DOOR_H;
-      if (aboveDoorH > 0.1) {
-        const aboveGeo = new THREE.BoxGeometry(dw, aboveDoorH, 0.20);
-        const above = new THREE.Mesh(aboveGeo, wallMat);
-        above.position.set((door.x + latchX) / 2, DOOR_H + aboveDoorH / 2, (door.z + latchZ) / 2);
-        above.rotation.y = -startRad;
+      // Wall above door — uniform height
+      if (ABOVE_H > 0.05) {
+        const above = new THREE.Mesh(new THREE.BoxGeometry(dw, ABOVE_H, WALL_THICK), wallMat);
+        above.position.set((door.x + latchX) / 2, DOOR_H + ABOVE_H / 2, (door.z + latchZ) / 2);
+        above.rotation.y = -wallAngle;
+        above.castShadow = true;
         group.add(above);
       }
     }
@@ -338,21 +351,33 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       group.add(fs);
     }
 
-    // === AUTO DOOR between 2 largest front windows ===
-    // Find the 2 largest windows on same Z coordinate (front facade)
-    const sortedWins = [...(data.windows as WindowData[])].filter(w => w.width > 1).sort((a, b) => b.width - a.width);
-    if (sortedWins.length >= 2) {
-      const w1 = sortedWins[0];
-      const w2 = sortedWins[1];
-      // Check if they're on same Z (same wall)
-      if (Math.abs(w1.z - w2.z) < 0.5) {
-        const doorX = (w1.x + w2.x) / 2;
+    // === AUTO SLIDING DOOR — find gap between front windows ===
+    // Deduplicate windows by position
+    const uniqueWins: WindowData[] = [];
+    for (const w of data.windows as WindowData[]) {
+      if (!uniqueWins.some(u => Math.abs(u.x - w.x) < 0.3 && Math.abs(u.z - w.z) < 0.3)) {
+        uniqueWins.push(w);
+      }
+    }
+    // Find pairs of windows on same Z with a gap between them
+    for (let i = 0; i < uniqueWins.length; i++) {
+      for (let j = i + 1; j < uniqueWins.length; j++) {
+        const w1 = uniqueWins[i], w2 = uniqueWins[j];
+        if (Math.abs(w1.z - w2.z) > 0.5) continue;
+        // Calculate gap
+        const left = w1.x < w2.x ? w1 : w2;
+        const right = w1.x < w2.x ? w2 : w1;
+        const gapLeft = left.x + left.width / 2;
+        const gapRight = right.x - right.width / 2;
+        const gapW = gapRight - gapLeft;
+        if (gapW < 0.8 || gapW > 4) continue; // gap must be 0.8-4m
+
+        const doorX = (gapLeft + gapRight) / 2;
         const doorZ = (w1.z + w2.z) / 2;
-        const doorW = Math.abs(w1.x - w2.x) - (w1.width + w2.width) / 2 + 0.2;
+        const doorW = gapW;
         const DOOR_H = 2.3;
 
-        if (doorW > 0.5 && doorW < 3) {
-          // Door frame
+        if (true) {
           const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.3, metalness: 0.6 });
 
           // Frame posts
@@ -384,12 +409,24 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
           rightDoor.position.set(doorX + panelW/2 + 0.02, DOOR_H/2, doorZ);
           group.add(rightDoor);
 
-          // Wall above door (to ceiling)
+          // Bottom rail
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.03, 0.08), doorFrameMat);
+          rail.position.set(doorX, 0.015, doorZ);
+          group.add(rail);
+
+          // Sensor on top
+          const sensorMat = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
+          const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), sensorMat);
+          sensor.position.set(doorX, DOOR_H + 0.05, doorZ + 0.06);
+          group.add(sensor);
+
+          // Wall above door — uniform with other doors
           const aboveDoorH = WIN_WALL_H - DOOR_H;
           if (aboveDoorH > 0.05) {
             const aboveGeo = new THREE.BoxGeometry(doorW + 0.06, aboveDoorH, 0.20);
             const above = new THREE.Mesh(aboveGeo, subWallMat);
             above.position.set(doorX, DOOR_H + aboveDoorH/2, doorZ);
+            above.castShadow = true;
             group.add(above);
           }
         }
