@@ -6,3 +6,5 @@ out
 *.ply
 *.ply.gz
 convert-laz-to-ply.py
+
+.vercel
