@@ -216,14 +216,15 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     group.add(cap);
   }
 
-  // === DOORS (aligned to nearest wall) ===
+  // === DOORS (aligned to nearest wall, uniform top) ===
   if (data.doors) {
     const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x6B4226, roughness: 0.6, metalness: 0.1 });
     const doorArcMat = new THREE.LineBasicMaterial({ color: 0xffc107, opacity: 0.6, transparent: true });
     const DOOR_H = 2.1;
-    const ABOVE_H = WALL_HEIGHT - DOOR_H; // uniform 0.9m above all doors
-    const FRAME_W = 0.05;
+    const FRAME_W = 0.04;
     const WALL_THICK = 0.20;
+    // All walls top at same height = INTERIOR_WALL_HEIGHT for interior doors
+    const UNIFORM_TOP = INTERIOR_WALL_HEIGHT;
 
     for (const door of data.doors as DoorData[]) {
       const dw = door.width;
@@ -234,9 +235,9 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       let bestWallAngle = startRad;
       let bestDist = Infinity;
       for (const ws of wallSegments) {
-        // Distance from door hinge to wall line
         const wx = ws.x2 - ws.x1, wz = ws.z2 - ws.z1;
         const len2 = wx * wx + wz * wz;
+        if (len2 < 0.01) continue;
         const t = Math.max(0, Math.min(1, ((door.x - ws.x1) * wx + (door.z - ws.z1) * wz) / len2));
         const cx = ws.x1 + t * wx, cz = ws.z1 + t * wz;
         const dist = Math.sqrt((door.x - cx) ** 2 + (door.z - cz) ** 2);
@@ -246,15 +247,14 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         }
       }
 
-      // Frame aligned to wall
       const wallAngle = bestWallAngle;
       const cosA = Math.cos(wallAngle), sinA = Math.sin(wallAngle);
-
-      // Latch position along wall direction
       const latchX = door.x + cosA * dw;
       const latchZ = door.z + sinA * dw;
+      const midX = (door.x + latchX) / 2;
+      const midZ = (door.z + latchZ) / 2;
 
-      // Frame posts
+      // Frame posts — same height as door, NOT taller
       const hingePost = new THREE.Mesh(new THREE.BoxGeometry(FRAME_W, DOOR_H, FRAME_W), doorFrameMat);
       hingePost.position.set(door.x, DOOR_H / 2, door.z);
       group.add(hingePost);
@@ -263,13 +263,13 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       latchPost.position.set(latchX, DOOR_H / 2, latchZ);
       group.add(latchPost);
 
-      // Top beam
+      // Top beam — flush with door top
       const beam = new THREE.Mesh(new THREE.BoxGeometry(dw, FRAME_W, FRAME_W), doorFrameMat);
-      beam.position.set((door.x + latchX) / 2, DOOR_H, (door.z + latchZ) / 2);
+      beam.position.set(midX, DOOR_H, midZ);
       beam.rotation.y = -wallAngle;
       group.add(beam);
 
-      // Door panel info for SceneEditor (movable)
+      // Door panel (movable)
       doorPanels.push({
         hingeX: door.x, hingeZ: door.z,
         width: dw, height: DOOR_H,
@@ -283,10 +283,11 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.02, p.y));
       group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
 
-      // Wall above door — uniform height
-      if (ABOVE_H > 0.05) {
-        const above = new THREE.Mesh(new THREE.BoxGeometry(dw, ABOVE_H, WALL_THICK), wallMat);
-        above.position.set((door.x + latchX) / 2, DOOR_H + ABOVE_H / 2, (door.z + latchZ) / 2);
+      // Wall above door — from door top to UNIFORM ceiling height
+      const aboveH = UNIFORM_TOP - DOOR_H;
+      if (aboveH > 0.05) {
+        const above = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.04, aboveH, WALL_THICK), wallMat);
+        above.position.set(midX, DOOR_H + aboveH / 2, midZ);
         above.rotation.y = -wallAngle;
         above.castShadow = true;
         group.add(above);
