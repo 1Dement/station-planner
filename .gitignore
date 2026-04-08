@@ -3,3 +3,6 @@ node_modules
 out
 *.log
 .env*
+*.ply
+*.ply.gz
+convert-laz-to-ply.py
