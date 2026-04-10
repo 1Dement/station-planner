@@ -228,10 +228,19 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
 
     for (const door of data.doors as DoorData[]) {
       const dw = door.width;
-      const startRad = (door.startAngle || 0) * Math.PI / 180;
-      const endRad = (door.endAngle || 90) * Math.PI / 180;
 
-      // Find nearest wall segment to align door frame
+      // Normalize DXF angles to [0, 360) — 360° = 0°
+      const startDeg = ((door.startAngle || 0) % 360 + 360) % 360;
+      const endDeg = ((door.endAngle || 90) % 360 + 360) % 360;
+      const startRad = startDeg * Math.PI / 180;
+      const endRad = endDeg * Math.PI / 180;
+
+      // DXF arcs go CCW: endAngle may wrap through 0°
+      let arcEndDeg = endDeg;
+      if (arcEndDeg <= startDeg) arcEndDeg += 360;
+      const arcEndRad = arcEndDeg * Math.PI / 180;
+
+      // Find nearest wall segment to align door frame (search up to 1.0m)
       let bestWallAngle = startRad;
       let bestDist = Infinity;
       for (const ws of wallSegments) {
@@ -241,7 +250,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         const t = Math.max(0, Math.min(1, ((door.x - ws.x1) * wx + (door.z - ws.z1) * wz) / len2));
         const cx = ws.x1 + t * wx, cz = ws.z1 + t * wz;
         const dist = Math.sqrt((door.x - cx) ** 2 + (door.z - cz) ** 2);
-        if (dist < bestDist && dist < 0.5) {
+        if (dist < bestDist && dist < 1.0) {
           bestDist = dist;
           bestWallAngle = Math.atan2(wz, wx);
         }
@@ -256,8 +265,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         if (diff < minDiff) { minDiff = diff; wallAngle = sa; }
       }
 
-      // Door opening direction from startAngle — determines which side panel opens
-      // Frame goes along wall, perpendicular to opening direction
+      // Frame goes along wall direction from hinge
       const cosA = Math.cos(wallAngle), sinA = Math.sin(wallAngle);
       const latchX = door.x + cosA * dw;
       const latchZ = door.z + sinA * dw;
@@ -283,13 +291,11 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       doorPanels.push({
         hingeX: door.x, hingeZ: door.z,
         width: dw, height: DOOR_H,
-        startAngle: startRad, endAngle: endRad,
+        startAngle: startRad, endAngle: arcEndRad,
       });
 
-      // Arc on floor
-      const arcStart = Math.min(startRad, endRad);
-      const arcEnd = Math.max(startRad, endRad);
-      const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, arcStart, arcEnd, false, 0);
+      // Arc on floor — CCW from startAngle to arcEndAngle (normalized, no wrap)
+      const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
       const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.02, p.y));
       group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
 
