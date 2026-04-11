@@ -89,6 +89,17 @@ export default function SceneEditor() {
   useEffect(() => { roomWidthRef.current = roomWidth; }, [roomWidth]);
   useEffect(() => { roomDepthRef.current = roomDepth; }, [roomDepth]);
   useEffect(() => { fpModeRef.current = fpMode; }, [fpMode]);
+  // Resize 3D viewport when catalog panel opens/closes
+  useEffect(() => {
+    setTimeout(() => {
+      if (!canvasRef.current || !rendererRef.current || !cameraRef.current || !composerRef.current) return;
+      const w = canvasRef.current.clientWidth, h = canvasRef.current.clientHeight;
+      cameraRef.current.aspect = w / h;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(w, h);
+      composerRef.current.setSize(w, h);
+    }, 350); // after CSS transition
+  }, [showCatalog]);
   useEffect(() => { fpEditRef.current = fpEditMode; }, [fpEditMode]);
 
   const snap = (v: number) => Math.round(v / GRID_SNAP) * GRID_SNAP;
@@ -1273,7 +1284,7 @@ export default function SceneEditor() {
       {/* Left Panel - Catalog */}
       <div
         className={`${showCatalog ? 'w-72' : 'w-0'} transition-all duration-300 flex-shrink-0 overflow-hidden`}
-        style={{ background: '#fff', borderRight: '1px solid #e5e5ea', boxShadow: '2px 0 8px rgba(0,0,0,0.04)' }}
+        style={showCatalog ? { background: '#fff', borderRight: '1px solid #e5e5ea', boxShadow: '2px 0 8px rgba(0,0,0,0.04)' } : {}}
       >
         <div className="w-72 h-full flex flex-col">
           {/* Header */}
