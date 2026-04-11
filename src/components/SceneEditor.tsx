@@ -770,10 +770,19 @@ export default function SceneEditor() {
 
       if (intersects.length > 0) {
         const hit = intersects[0];
-        // Ignore hits through walls — check if a building wall is closer
+        // Ignore hits through walls — check if a wall (not floor/ceiling) is closer
         const buildingGroup = sceneRef.current?.children.find(c => c.userData?.type === 'building');
         if (buildingGroup) {
-          const wallHits = raycasterRef.current.intersectObject(buildingGroup, true);
+          const wallHits = raycasterRef.current.intersectObject(buildingGroup, true)
+            .filter(h => {
+              // Only count vertical surfaces (walls), not floors/ceilings
+              // A wall face has a normal with significant X or Z component
+              if (!h.face) return false;
+              const normal = h.face.normal.clone();
+              h.object.getWorldQuaternion(new THREE.Quaternion()).normalize();
+              // Floor/ceiling normals point mostly Y, wall normals point mostly X or Z
+              return Math.abs(normal.y) < 0.5;
+            });
           if (wallHits.length > 0 && wallHits[0].distance < hit.distance - 0.05) {
             return; // Wall is in front of the object — click was through a wall
           }
