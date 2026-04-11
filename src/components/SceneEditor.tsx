@@ -764,19 +764,29 @@ export default function SceneEditor() {
 
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
 
-      // Check if clicking on an object — but DON'T start drag yet (wait for threshold)
+      // Check if clicking DIRECTLY on an object (not through walls/ceiling)
       const meshes = objectsRef.current.map(o => o.mesh);
       const intersects = raycasterRef.current.intersectObjects(meshes, true);
 
       if (intersects.length > 0) {
-        let clicked = intersects[0].object as THREE.Object3D;
+        const hit = intersects[0];
+        // Ignore hits through walls — check if a building wall is closer
+        const buildingGroup = sceneRef.current?.children.find(c => c.userData?.type === 'building');
+        if (buildingGroup) {
+          const wallHits = raycasterRef.current.intersectObject(buildingGroup, true);
+          if (wallHits.length > 0 && wallHits[0].distance < hit.distance - 0.05) {
+            return; // Wall is in front of the object — click was through a wall
+          }
+        }
+
+        let clicked = hit.object as THREE.Object3D;
         let obj = objectsRef.current.find(o => o.mesh === clicked);
         while (!obj && clicked.parent) {
           clicked = clicked.parent;
           obj = objectsRef.current.find(o => o.mesh === clicked);
         }
         if (obj) {
-          pendingDragObj = obj; // Store but don't drag yet
+          pendingDragObj = obj;
           const floorPoint = getFloorIntersection(e.clientX, e.clientY);
           if (floorPoint) {
             dragOffsetRef.current.set(obj.mesh.position.x - floorPoint.x, 0, obj.mesh.position.z - floorPoint.z);
