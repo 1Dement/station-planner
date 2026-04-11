@@ -69,6 +69,8 @@ export default function SceneEditor() {
   const fpModeRef = useRef(false);
   const [fpEditMode, setFpEditMode] = useState(false);
   const fpEditRef = useRef(false);
+  const [orbitEditMode, setOrbitEditMode] = useState(false);
+  const orbitEditRef = useRef(false);
   const [fpAction, setFpAction] = useState<{ obj: PlacedObject; x: number; y: number } | null>(null);
   const fpDraggingRef = useRef<PlacedObject | null>(null);
   const [fpDragging, setFpDragging] = useState<string | null>(null); // name of dragged obj
@@ -102,6 +104,7 @@ export default function SceneEditor() {
     }, 350); // after CSS transition
   }, [showCatalog]);
   useEffect(() => { fpEditRef.current = fpEditMode; }, [fpEditMode]);
+  useEffect(() => { orbitEditRef.current = orbitEditMode; }, [orbitEditMode]);
 
   const snap = (v: number) => Math.round(v / GRID_SNAP) * GRID_SNAP;
 
@@ -746,71 +749,58 @@ export default function SceneEditor() {
   }, []);
 
   // ========== DRAG & DROP SYSTEM ==========
+  // In orbit edit mode: OrbitControls disabled, left-click = select + drag objects
+  // In normal mode: OrbitControls enabled, no object interaction
+  useEffect(() => {
+    if (orbitEditMode && orbitRef.current) orbitRef.current.enabled = false;
+    if (!orbitEditMode && orbitRef.current && !fpMode) orbitRef.current.enabled = true;
+  }, [orbitEditMode, fpMode]);
+
   useEffect(() => {
     const el = rendererRef.current?.domElement;
     if (!el) return;
 
-    let readyToDrag = false;
-
-    // Use CAPTURE phase to intercept before OrbitControls
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       if (fpModeRef.current) return;
+      if (!orbitEditRef.current) return; // No interaction in non-edit mode
       mouseDownPosRef.current.set(e.clientX, e.clientY);
-      readyToDrag = false;
 
-      // If clicking on the selected object, block OrbitControls and prepare drag
-      if (selectedRef.current) {
-        const rect = el.getBoundingClientRect();
-        const mouse = new THREE.Vector2(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          -((e.clientY - rect.top) / rect.height) * 2 + 1
-        );
-        raycasterRef.current.setFromCamera(mouse, cameraRef.current!);
-        const hits = raycasterRef.current.intersectObject(selectedRef.current.mesh, true);
-        if (hits.length > 0) {
-          readyToDrag = true;
+      const rect = el.getBoundingClientRect();
+      mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
+
+      // Click on object = select + prepare drag
+      const meshes = objectsRef.current.map(o => o.mesh);
+      const hits = raycasterRef.current.intersectObjects(meshes, true);
+      if (hits.length > 0) {
+        let clicked = hits[0].object as THREE.Object3D;
+        let obj = objectsRef.current.find(o => o.mesh === clicked);
+        while (!obj && clicked.parent) { clicked = clicked.parent; obj = objectsRef.current.find(o => o.mesh === clicked); }
+        if (obj) {
+          if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
+          selectedRef.current = obj;
+          setSelectedObj(obj);
+          highlightObject(obj, true);
           const floorPoint = getFloorIntersection(e.clientX, e.clientY);
           if (floorPoint) {
-            dragOffsetRef.current.set(
-              selectedRef.current.mesh.position.x - floorPoint.x, 0,
-              selectedRef.current.mesh.position.z - floorPoint.z
-            );
+            dragOffsetRef.current.set(obj.mesh.position.x - floorPoint.x, 0, obj.mesh.position.z - floorPoint.z);
           }
-          // BLOCK OrbitControls from receiving this event
-          e.stopImmediatePropagation();
-          e.preventDefault();
+          saveSnapshot();
+          isDraggingRef.current = true;
+          el.style.cursor = 'grabbing';
+          setStatusMsg(`Drag: ${obj.name} | R=rotire`);
         }
       }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       if (fpModeRef.current) return;
-
-      // Drag the SELECTED object after 8px threshold
-      if (selectedRef.current && !isDraggingRef.current && readyToDrag) {
-        const dx = e.clientX - mouseDownPosRef.current.x;
-        const dy = e.clientY - mouseDownPosRef.current.y;
-        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-          saveSnapshot();
-          isDraggingRef.current = true;
-          el.style.cursor = 'grabbing';
-          setStatusMsg(`Drag: ${selectedRef.current.name} | R=rotire`);
-        }
-        return;
-      }
+      if (!orbitEditRef.current) return;
 
       if (!isDraggingRef.current || !selectedRef.current) {
-        // Hover effect
-        const rect = el.getBoundingClientRect();
-        const mouse = new THREE.Vector2(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          -((e.clientY - rect.top) / rect.height) * 2 + 1
-        );
-        raycasterRef.current.setFromCamera(mouse, cameraRef.current!);
-        const allInteractive = [...objectsRef.current.map(o => o.mesh), ...doorPanelsRef.current.map(d => d.pivot)];
-        const intersects = raycasterRef.current.intersectObjects(allInteractive, true);
-        el.style.cursor = intersects.length > 0 ? 'grab' : 'default';
+        el.style.cursor = 'crosshair';
         return;
       }
 
@@ -820,7 +810,6 @@ export default function SceneEditor() {
         const rawX = floorPoint.x + dragOffsetRef.current.x;
         const rawZ = floorPoint.z + dragOffsetRef.current.z;
 
-        // Auto-boundary: clamp to building exterior
         const bounds = buildingBoundsRef.current;
         let bx = rawX, bz = rawZ;
         if (bounds) {
@@ -839,78 +828,49 @@ export default function SceneEditor() {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      readyToDrag = false;
       if (fpModeRef.current) return;
+      if (!orbitEditRef.current) return;
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
         clearSnapLines();
-        if (orbitRef.current) orbitRef.current.enabled = true;
-        el.style.cursor = selectedRef.current ? 'grab' : 'default';
+        el.style.cursor = 'crosshair';
         if (selectedRef.current) {
-          setStatusMsg(`Plasat: ${selectedRef.current.name} (${selectedRef.current.mesh.position.x.toFixed(2)}, ${selectedRef.current.mesh.position.z.toFixed(2)})`);
+          setStatusMsg(`Plasat: ${selectedRef.current.name}`);
         }
         checkAllCollisions();
         return;
       }
 
-      // Simple click (no drag) - check if it was just a click (not drag)
+      // Simple click (no drag)
       const dx = e.clientX - mouseDownPosRef.current.x;
       const dy = e.clientY - mouseDownPosRef.current.y;
-      if (Math.abs(dx) < 3 && Math.abs(dy) < 3) {
-        // Measure mode intercept
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
         if (measureMode) { handleMeasureClick(e.clientX, e.clientY); return; }
 
         const rect = el.getBoundingClientRect();
         mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
         raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
 
-        // Check door click — toggle open/closed
+        // Door toggle
         const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
         const doorHits = raycasterRef.current.intersectObjects(doorMeshes, true);
         if (doorHits.length > 0) {
           let clickedDoor = doorHits[0].object as THREE.Object3D;
           let doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor || d.panel === clickedDoor);
-          while (!doorEntry && clickedDoor.parent) {
-            clickedDoor = clickedDoor.parent;
-            doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor);
-          }
+          while (!doorEntry && clickedDoor.parent) { clickedDoor = clickedDoor.parent; doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor); }
           if (doorEntry) {
             const ud = doorEntry.pivot.userData;
             ud.isOpen = !ud.isOpen;
             doorEntry.pivot.rotation.y = ud.isOpen ? -ud.endAngle : -ud.startAngle;
-            setStatusMsg(ud.isOpen ? 'Ușă deschisă' : 'Ușă închisă');
+            setStatusMsg(ud.isOpen ? 'Usa deschisa' : 'Usa inchisa');
             return;
           }
         }
 
-        // Find building walls to check occlusion
-        const buildingGroup = sceneRef.current!.children.find(c => c.userData?.type === 'building');
-        const wallDist = buildingGroup
-          ? raycasterRef.current.intersectObject(buildingGroup, true)
-              .filter(h => h.face && Math.abs(h.face.normal.y) < 0.3) // only vertical walls
-              .map(h => h.distance)[0] ?? Infinity
-          : Infinity;
-
-        const objHits = raycasterRef.current.intersectObjects(
-          objectsRef.current.map(o => o.mesh), true
-        );
-
-        // Only select if object is CLOSER than any wall (not behind a wall)
-        if (objHits.length > 0 && objHits[0].distance < wallDist) {
-          let clicked = objHits[0].object as THREE.Object3D;
-          let obj = objectsRef.current.find(o => o.mesh === clicked);
-          while (!obj && clicked.parent) { clicked = clicked.parent; obj = objectsRef.current.find(o => o.mesh === clicked); }
-          if (obj) {
-            if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
-            selectedRef.current = obj;
-            setSelectedObj(obj);
-            highlightObject(obj, true);
-            setStatusMsg(`${obj.name} | Drag=muta | R=rotire | Del=sterge | D=duplica`);
-          }
-        } else {
+        // Deselect on empty click (selection happens in mouseDown when edit mode)
+        if (!isDraggingRef.current) {
           // Clicked on empty space - deselect
           if (selectedRef.current) highlightObject(selectedRef.current, false);
           selectedRef.current = null;
@@ -922,12 +882,12 @@ export default function SceneEditor() {
       }
     };
 
-    el.addEventListener('mousedown', handleMouseDown, true); // capture phase!
+    el.addEventListener('mousedown', handleMouseDown);
     el.addEventListener('mousemove', handleMouseMove);
     el.addEventListener('mouseup', handleMouseUp);
 
     return () => {
-      el.removeEventListener('mousedown', handleMouseDown, true);
+      el.removeEventListener('mousedown', handleMouseDown);
       el.removeEventListener('mousemove', handleMouseMove);
       el.removeEventListener('mouseup', handleMouseUp);
     };
@@ -1186,6 +1146,7 @@ export default function SceneEditor() {
   const enterFpMode = () => {
     if (!cameraRef.current || !orbitRef.current) return;
     setFpMode(true);
+    setOrbitEditMode(false);
     orbitRef.current.saveState();
     orbitRef.current.enabled = false;
     const cam = cameraRef.current;
@@ -1592,6 +1553,7 @@ export default function SceneEditor() {
             <button onClick={resetCamera} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>3D</button>
             <button onClick={topView} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>2D</button>
             <button onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }} className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: showCeiling ? '#0071e3' : 'transparent', color: showCeiling ? '#fff' : '#1d1d1f' }}>Tavan</button>
+            <button onClick={() => setOrbitEditMode(!orbitEditMode)} className="text-[11px] px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90" style={{ background: orbitEditMode ? '#f59e0b' : 'transparent', color: orbitEditMode ? '#fff' : '#1d1d1f' }}>{orbitEditMode ? 'Edit ON' : 'Edit'}</button>
             <button onClick={enterFpMode} className="text-[11px] px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90" style={{ background: '#0071e3', color: '#fff' }}>Walk</button>
             <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: measureMode ? '#ff3b30' : 'transparent', color: measureMode ? '#fff' : '#1d1d1f' }}>Masura</button>
           </div>
@@ -1729,7 +1691,7 @@ export default function SceneEditor() {
             <span style={{ color: '#1d1d1f' }}>{statusMsg}</span>
             <div className="flex items-center gap-3">
               <span>{objectCount} obiecte</span>
-              <span className="hidden sm:inline">Drag=Muta | R=22.5° | Shift+R=15° | snap 0/90/180/270 | D=Duplica | Del=Sterge | Ctrl+Z=Undo</span>
+              <span className="hidden sm:inline">{orbitEditMode ? 'Edit ON: Click+drag=Muta | R=Rotire | Del=Sterge | D=Duplica | Ctrl+Z=Undo' : 'Click Edit pentru a muta obiecte | R=Rotire | Ctrl+Z=Undo'}</span>
             </div>
           </div>
         )}
