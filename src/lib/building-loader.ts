@@ -214,22 +214,13 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
 
   let extMinX = Infinity, extMaxX = -Infinity, extMinZ = Infinity, extMaxZ = -Infinity;
 
-  // === WALL FACES (vertical only, no caps) ===
+  // === WALL SEGMENTS (for snap/collision only, no rendering — hatch handles visuals) ===
   for (const wall of data.walls) {
     const pts = wall.points;
     if (pts.length < 3 || wall.area < 0.05) continue;
 
     const isBig = wall.area > 50;
-    const wallH = WALL_HEIGHT;
 
-    const mesh = buildWallFaces(pts, wallH, wallMat);
-    group.add(mesh);
-
-    // Top edge
-    const topPts = [...pts, pts[0]].map(([x, z]) => new THREE.Vector3(x, wallH, z));
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(topPts), edgeMat));
-
-    // Always track bounds from all walls
     for (const [x, z] of pts) {
       extMinX = Math.min(extMinX, x); extMaxX = Math.max(extMaxX, x);
       extMinZ = Math.min(extMinZ, z); extMaxZ = Math.max(extMaxZ, z);
