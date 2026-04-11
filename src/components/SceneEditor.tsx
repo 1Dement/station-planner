@@ -1132,10 +1132,21 @@ export default function SceneEditor() {
         exitFpMode();
         return;
       }
-      // R to rotate while dragging or with selected object
+      // R to rotate while dragging — free rotate with snap at 0/90/180/270
       if ((e.key === 'r' || e.key === 'R') && fpDraggingRef.current) {
-        fpDraggingRef.current.mesh.rotation.y += Math.PI / 4;
-        setStatusMsg(`Rotit: ${fpDraggingRef.current.name} 45°`);
+        const step = e.shiftKey ? Math.PI / 12 : Math.PI / 8; // Shift=15°, normal=22.5°
+        let angle = fpDraggingRef.current.mesh.rotation.y + step;
+        // Snap to 0/90/180/270 if within 8°
+        const snapThreshold = 8 * Math.PI / 180;
+        const cardinals = [0, Math.PI / 2, Math.PI, -Math.PI / 2, -Math.PI, 3 * Math.PI / 2, 2 * Math.PI];
+        for (const c of cardinals) {
+          if (Math.abs(angle - c) < snapThreshold) { angle = c; break; }
+        }
+        // Normalize to [-PI, PI]
+        while (angle > Math.PI) angle -= 2 * Math.PI;
+        while (angle < -Math.PI) angle += 2 * Math.PI;
+        fpDraggingRef.current.mesh.rotation.y = angle;
+        setStatusMsg(`Rotit: ${Math.round(angle * 180 / Math.PI)}°`);
         return;
       }
       if (fpEditMode && (e.key === 'r' || e.key === 'R') && selectedRef.current) {
