@@ -65,6 +65,7 @@ export default function SceneEditor() {
   const [pointCloudLoaded, setPointCloudLoaded] = useState(false);
   const [showCeiling, setShowCeiling] = useState(false);
   const [fpMode, setFpMode] = useState(false);
+  const fpModeRef = useRef(false);
   const [fpEditMode, setFpEditMode] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
@@ -83,6 +84,7 @@ export default function SceneEditor() {
   // Keep refs in sync for use in event handlers
   useEffect(() => { roomWidthRef.current = roomWidth; }, [roomWidth]);
   useEffect(() => { roomDepthRef.current = roomDepth; }, [roomDepth]);
+  useEffect(() => { fpModeRef.current = fpMode; }, [fpMode]);
 
   const snap = (v: number) => Math.round(v / GRID_SNAP) * GRID_SNAP;
 
@@ -521,7 +523,7 @@ export default function SceneEditor() {
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return; // Only left click
       // In FP mode, mouse is for looking — skip all drag/select logic
-      if (fpMode) return;
+      if (fpModeRef.current) return;
       mouseDownPosRef.current.set(e.clientX, e.clientY);
 
       const rect = el.getBoundingClientRect();
@@ -573,7 +575,7 @@ export default function SceneEditor() {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (fpMode) return; // FP mode handles its own mouse
+      if (fpModeRef.current) return; // FP mode handles its own mouse
 
       if (!isDraggingRef.current || !selectedRef.current) {
         // Hover effect
@@ -646,7 +648,7 @@ export default function SceneEditor() {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (fpMode) return; // FP mode handles its own mouse
+      if (fpModeRef.current) return; // FP mode handles its own mouse
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
@@ -722,7 +724,7 @@ export default function SceneEditor() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (fpMode) return; // FP mode handles its own keys
+      if (fpModeRef.current) return; // FP mode handles its own keys
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
       if (e.key === 'Delete' && selectedRef.current) {
@@ -1153,62 +1155,38 @@ export default function SceneEditor() {
   }, [fpMode]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden" style={{ background: '#f5f5f7' }}>
       {/* Left Panel - Catalog */}
       <div
         className={`${showCatalog ? 'w-72' : 'w-0'} transition-all duration-300 flex-shrink-0 overflow-hidden`}
-        style={{ background: 'var(--panel-bg)', borderRight: '1px solid var(--panel-border)' }}
+        style={{ background: '#fff', borderRight: '1px solid #e5e5ea', boxShadow: '2px 0 8px rgba(0,0,0,0.04)' }}
       >
         <div className="w-72 h-full flex flex-col">
-          <div className="p-3 border-b" style={{ borderColor: 'var(--panel-border)' }}>
-            <h1 className="text-base font-bold" style={{ color: 'var(--accent)' }}>
-              Station Planner 3D
-            </h1>
-            <p className="text-xs opacity-60 mt-0.5">Planificare spatiu statie carburant</p>
+          {/* Header */}
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid #e5e5ea' }}>
+            <h1 className="text-sm font-semibold" style={{ color: '#1d1d1f' }}>Station Planner</h1>
+            <p className="text-[11px] mt-0.5" style={{ color: '#86868b' }}>Planificare spatiu statie</p>
           </div>
 
-          <div className="p-3 border-b" style={{ borderColor: 'var(--panel-border)' }}>
-            <h3 className="text-xs font-bold uppercase opacity-50 mb-2">Incinta</h3>
-            <label
-              className="block w-full text-center text-xs py-2 px-3 rounded cursor-pointer mb-2 transition-colors"
-              style={{ background: 'var(--panel-border)', color: 'var(--success)' }}
-            >
-              {pointCloudLoaded ? 'Point Cloud Incarcat' : 'Incarca Point Cloud (.ply)'}
+          {/* Point Cloud + Dims */}
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid #e5e5ea' }}>
+            <label className="flex items-center justify-center gap-1.5 w-full text-xs py-2 rounded-lg cursor-pointer transition-all hover:opacity-90" style={{ background: pointCloudLoaded ? '#30d158' : '#0071e3', color: '#fff' }}>
+              {pointCloudLoaded ? 'Point Cloud OK' : 'Incarca Point Cloud'}
               <input type="file" accept=".ply" onChange={handleLoadPointCloud} className="hidden" />
             </label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="text-xs opacity-50">Latime (m)</label>
-                <input
-                  type="number" value={roomWidth} min={3} max={50} step={0.5}
-                  onChange={e => setRoomWidth(Number(e.target.value))}
-                  onBlur={updateRoom}
-                  className="w-full text-xs p-1.5 rounded mt-0.5"
-                  style={{ background: 'var(--background)', border: '1px solid var(--panel-border)', color: 'var(--foreground)' }}
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs opacity-50">Adancime (m)</label>
-                <input
-                  type="number" value={roomDepth} min={3} max={50} step={0.5}
-                  onChange={e => setRoomDepth(Number(e.target.value))}
-                  onBlur={updateRoom}
-                  className="w-full text-xs p-1.5 rounded mt-0.5"
-                  style={{ background: 'var(--background)', border: '1px solid var(--panel-border)', color: 'var(--foreground)' }}
-                />
-              </div>
-            </div>
           </div>
 
-          <div className="flex flex-wrap gap-1 p-3 border-b" style={{ borderColor: 'var(--panel-border)' }}>
+          {/* Categories */}
+          <div className="flex flex-wrap gap-1 px-3 py-2.5" style={{ borderBottom: '1px solid #e5e5ea' }}>
             {CATEGORIES.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className="text-xs px-2 py-1 rounded transition-colors"
+                className="text-[11px] px-2.5 py-1 rounded-full transition-all"
                 style={{
-                  background: activeCategory === cat.id ? 'var(--accent)' : 'var(--panel-border)',
-                  color: activeCategory === cat.id ? '#fff' : 'var(--foreground)',
+                  background: activeCategory === cat.id ? '#0071e3' : '#f5f5f7',
+                  color: activeCategory === cat.id ? '#fff' : '#1d1d1f',
+                  fontWeight: activeCategory === cat.id ? 600 : 400,
                 }}
               >
                 {cat.icon} {cat.name}
@@ -1216,28 +1194,25 @@ export default function SceneEditor() {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
+          {/* Catalog items */}
+          <div className="flex-1 overflow-y-auto px-3 py-2">
             {getCatalogByCategory(activeCategory).map(item => (
               <button
                 key={item.id}
                 onClick={() => addObject(item)}
-                className="w-full text-left p-2.5 mb-1.5 rounded transition-all hover:scale-[1.02]"
-                style={{
-                  background: 'var(--background)',
-                  border: '1px solid var(--panel-border)',
-                }}
+                className="w-full text-left px-3 py-2.5 mb-1 rounded-xl transition-all hover:shadow-sm active:scale-[0.98]"
+                style={{ background: '#f5f5f7', border: '1px solid transparent' }}
+                onMouseEnter={e => { (e.target as HTMLElement).style.background = '#eef0f2'; (e.target as HTMLElement).style.borderColor = '#d1d1d6'; }}
+                onMouseLeave={e => { (e.target as HTMLElement).style.background = '#f5f5f7'; (e.target as HTMLElement).style.borderColor = 'transparent'; }}
               >
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-8 h-8 rounded flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ background: item.color + '40' }}
-                  >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     {item.icon}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold truncate">{item.name}</div>
-                    <div className="text-[10px] opacity-50">
-                      {(item.width * 100).toFixed(0)}x{(item.depth * 100).toFixed(0)}x{(item.height * 100).toFixed(0)} cm
+                    <div className="text-xs font-medium truncate" style={{ color: '#1d1d1f' }}>{item.name}</div>
+                    <div className="text-[10px]" style={{ color: '#86868b' }}>
+                      {(item.width * 100).toFixed(0)} x {(item.depth * 100).toFixed(0)} x {(item.height * 100).toFixed(0)} cm
                     </div>
                   </div>
                 </div>
@@ -1245,28 +1220,12 @@ export default function SceneEditor() {
             ))}
           </div>
 
-          <div className="p-3 border-t flex flex-col gap-1.5" style={{ borderColor: 'var(--panel-border)' }}>
-            <div className="flex gap-1.5">
-              <button
-                onClick={handleExport}
-                className="flex-1 text-xs py-1.5 rounded font-semibold transition-colors"
-                style={{ background: 'var(--success)', color: '#000' }}
-              >
-                Export JSON
-              </button>
-              <button
-                onClick={handleScreenshot}
-                className="flex-1 text-xs py-1.5 rounded font-semibold transition-colors"
-                style={{ background: 'var(--panel-border)', color: 'var(--foreground)' }}
-              >
-                Screenshot
-              </button>
-            </div>
-            <label
-              className="block w-full text-center text-xs py-1.5 rounded cursor-pointer transition-colors"
-              style={{ background: 'var(--panel-border)', color: 'var(--foreground)' }}
-            >
-              Import Layout
+          {/* Bottom actions */}
+          <div className="px-3 py-3 flex gap-2" style={{ borderTop: '1px solid #e5e5ea' }}>
+            <button onClick={handleExport} className="flex-1 text-[11px] py-2 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#0071e3', color: '#fff' }}>Export</button>
+            <button onClick={handleScreenshot} className="flex-1 text-[11px] py-2 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>Screenshot</button>
+            <label className="flex-1 text-[11px] py-2 rounded-lg font-medium text-center cursor-pointer transition-all hover:opacity-90" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>
+              Import
               <input type="file" accept=".json" onChange={handleImportLayout} className="hidden" />
             </label>
           </div>
@@ -1292,8 +1251,8 @@ export default function SceneEditor() {
         {!fpMode && (
           <button
             onClick={() => setShowCatalog(!showCatalog)}
-            className="absolute top-3 left-3 w-8 h-8 rounded flex items-center justify-center text-sm z-10"
-            style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
+            className="absolute top-3 left-3 w-8 h-8 rounded-lg flex items-center justify-center text-sm z-10 hover:opacity-80 transition-all"
+            style={{ background: '#fff', boxShadow: 'var(--shadow)', color: '#1d1d1f' }}
           >
             {showCatalog ? '\u25C0' : '\u25B6'}
           </button>
@@ -1302,21 +1261,21 @@ export default function SceneEditor() {
         {/* ORBIT MODE toolbar */}
         {!fpMode && (
           <div
-            className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg z-10"
-            style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
+            className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1.5 rounded-xl z-10"
+            style={{ background: '#fff', boxShadow: 'var(--shadow-lg)' }}
           >
-            <button onClick={() => rotateSelected(-45)} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>-45°</button>
-            <button onClick={() => rotateSelected(45)} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>+45°</button>
-            <button onClick={() => rotateSelected(90)} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>90°</button>
-            <div className="w-px h-4" style={{ background: 'var(--panel-border)' }} />
-            <button onClick={duplicateSelected} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>Duplica</button>
-            <button onClick={deleteSelected} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: '#e9456033', color: 'var(--accent)' }}>Sterge</button>
-            <div className="w-px h-4" style={{ background: 'var(--panel-border)' }} />
-            <button onClick={resetCamera} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>3D</button>
-            <button onClick={topView} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>2D</button>
-            <button onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: showCeiling ? 'var(--accent)' : 'var(--panel-border)', color: showCeiling ? '#fff' : 'inherit' }}>Tavan</button>
-            <button onClick={enterFpMode} className="text-xs px-2 py-1 rounded hover:opacity-80 font-semibold" style={{ background: '#2563eb', color: '#fff' }}>Walk</button>
-            <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: measureMode ? '#dc2626' : 'var(--panel-border)', color: measureMode ? '#fff' : 'inherit' }}>Masura</button>
+            <button onClick={() => rotateSelected(-45)} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>-45°</button>
+            <button onClick={() => rotateSelected(45)} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>+45°</button>
+            <button onClick={() => rotateSelected(90)} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>90°</button>
+            <div className="w-px h-4 mx-0.5" style={{ background: '#e5e5ea' }} />
+            <button onClick={duplicateSelected} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>Duplica</button>
+            <button onClick={deleteSelected} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#ff3b30' }}>Sterge</button>
+            <div className="w-px h-4 mx-0.5" style={{ background: '#e5e5ea' }} />
+            <button onClick={resetCamera} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>3D</button>
+            <button onClick={topView} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>2D</button>
+            <button onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }} className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: showCeiling ? '#0071e3' : 'transparent', color: showCeiling ? '#fff' : '#1d1d1f' }}>Tavan</button>
+            <button onClick={enterFpMode} className="text-[11px] px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90" style={{ background: '#0071e3', color: '#fff' }}>Walk</button>
+            <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: measureMode ? '#ff3b30' : 'transparent', color: measureMode ? '#fff' : '#1d1d1f' }}>Masura</button>
           </div>
         )}
 
@@ -1359,51 +1318,30 @@ export default function SceneEditor() {
 
         {/* Selected object info (orbit mode only) */}
         {!fpMode && selectedObj && (
-          <div
-            className="absolute top-14 right-3 w-56 p-3 rounded-lg z-10"
-            style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
-          >
-            <h3 className="text-xs font-bold mb-2" style={{ color: 'var(--success)' }}>
-              {selectedObj.name}
-            </h3>
-            <div className="space-y-1 text-[10px] opacity-70">
-              <p>Dimensiuni: {(selectedObj.dimensions.width * 100).toFixed(0)}x{(selectedObj.dimensions.depth * 100).toFixed(0)}x{(selectedObj.dimensions.height * 100).toFixed(0)} cm</p>
-              <p>Pozitie X: {selectedObj.mesh.position.x.toFixed(2)}m</p>
-              <p>Pozitie Z: {selectedObj.mesh.position.z.toFixed(2)}m</p>
-              <p>Rotatie: {(selectedObj.mesh.rotation.y * 180 / Math.PI).toFixed(1)}°</p>
+          <div className="absolute top-14 right-3 w-52 p-3 rounded-xl z-10" style={{ background: '#fff', boxShadow: 'var(--shadow-lg)' }}>
+            <h3 className="text-xs font-semibold mb-1.5" style={{ color: '#0071e3' }}>{selectedObj.name}</h3>
+            <div className="space-y-0.5 text-[10px]" style={{ color: '#86868b' }}>
+              <p>{(selectedObj.dimensions.width * 100).toFixed(0)} x {(selectedObj.dimensions.depth * 100).toFixed(0)} x {(selectedObj.dimensions.height * 100).toFixed(0)} cm</p>
+              <p>Pozitie: ({selectedObj.mesh.position.x.toFixed(2)}, {selectedObj.mesh.position.z.toFixed(2)}) m</p>
+              <p>Rotatie: {(selectedObj.mesh.rotation.y * 180 / Math.PI).toFixed(0)}°</p>
             </div>
-            {objectsRef.current.length > 1 && (
-              <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--panel-border)' }}>
-                <p className="text-[10px] font-bold opacity-50 mb-1">Distante:</p>
-                {objectsRef.current
-                  .filter(o => o.id !== selectedObj.id)
-                  .map(o => ({ name: o.name, dist: getDistance(selectedObj, o) }))
-                  .sort((a, b) => a.dist - b.dist)
-                  .slice(0, 4)
-                  .map((d, i) => (
-                    <p key={i} className="text-[10px]" style={{ color: d.dist < selectedObj.clearance ? 'var(--accent)' : 'var(--success)' }}>
-                      {d.name}: {(d.dist * 100).toFixed(0)}cm{d.dist < selectedObj.clearance && ' !'}
-                    </p>
-                  ))}
-              </div>
-            )}
           </div>
         )}
 
         {/* Collision warnings */}
         {!fpMode && collisions.length > 0 && (
-          <div className="absolute bottom-16 right-3 w-56 p-3 rounded-lg z-10 max-h-48 overflow-y-auto" style={{ background: '#e9456022', border: '1px solid var(--accent)' }}>
-            <h3 className="text-xs font-bold mb-1" style={{ color: 'var(--accent)' }}>Coliziuni ({collisions.length})</h3>
-            {collisions.slice(0, 6).map((c, i) => (<p key={i} className="text-[10px] opacity-80">{c}</p>))}
+          <div className="absolute bottom-12 right-3 w-52 p-2.5 rounded-xl z-10" style={{ background: '#fff0f0', boxShadow: 'var(--shadow)', border: '1px solid #fecaca' }}>
+            <h3 className="text-[11px] font-semibold mb-1" style={{ color: '#ff3b30' }}>Coliziuni ({collisions.length})</h3>
+            {collisions.slice(0, 4).map((c, i) => (<p key={i} className="text-[10px]" style={{ color: '#86868b' }}>{c}</p>))}
           </div>
         )}
 
         {/* Bottom status bar */}
         {!fpMode && (
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-2 text-xs z-10" style={{ background: 'var(--panel-bg)', borderTop: '1px solid var(--panel-border)' }}>
-            <span>{statusMsg}</span>
-            <div className="flex items-center gap-4 opacity-60">
-              <span>Obiecte: {objectCount}</span>
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-1.5 text-[11px] z-10" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderTop: '1px solid #e5e5ea', color: '#86868b' }}>
+            <span style={{ color: '#1d1d1f' }}>{statusMsg}</span>
+            <div className="flex items-center gap-3">
+              <span>{objectCount} obiecte</span>
               <span className="hidden sm:inline">Drag=Muta | R=Roteste | D=Duplica | Del=Sterge | Ctrl+Z=Undo</span>
             </div>
           </div>
