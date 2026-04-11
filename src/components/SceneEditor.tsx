@@ -65,6 +65,7 @@ export default function SceneEditor() {
   const [pointCloudLoaded, setPointCloudLoaded] = useState(false);
   const [showCeiling, setShowCeiling] = useState(false);
   const [fpMode, setFpMode] = useState(false);
+  const [fpEditMode, setFpEditMode] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
   const measureLineRef = useRef<THREE.Line | null>(null);
@@ -603,15 +604,37 @@ export default function SceneEditor() {
           newZ = Math.max(bounds.minZ + objHalfD, Math.min(bounds.maxZ - objHalfD, newZ));
         }
 
-        // Wall snap: snap to any wall segment from DXF
-        const isWallItem = obj.catalogId.includes('shelf-wall') || obj.catalogId === 'tobacco-display' || obj.catalogId === 'fire-extinguisher' || obj.catalogId === 'first-aid' || obj.catalogId === 'drink-cooler' || obj.catalogId === 'fridge-vertical' || obj.catalogId === 'fridge-double';
-        if (isWallItem && wallSegmentsRef.current.length > 0) {
-          const result = snapToWall(newX, newZ, obj.dimensions.depth, wallSegmentsRef.current, 0.8);
+        // Wall snap for all objects near walls
+        if (wallSegmentsRef.current.length > 0) {
+          const result = snapToWall(newX, newZ, obj.dimensions.depth, wallSegmentsRef.current, 0.6);
           if (result.snapped) {
             newX = result.x;
             newZ = result.z;
             obj.mesh.rotation.y = result.rotation;
           }
+        }
+
+        // Tetris snap: align edges with nearby objects
+        const SNAP_DIST = 0.15;
+        for (const other of objectsRef.current) {
+          if (other.id === obj.id) continue;
+          const ox = other.mesh.position.x, oz = other.mesh.position.z;
+          const ow = other.dimensions.width / 2, od = other.dimensions.depth / 2;
+          const tw = obj.dimensions.width / 2, td = obj.dimensions.depth / 2;
+
+          // Snap X edges (left-to-right, right-to-left)
+          if (Math.abs(newZ - oz) < Math.max(od, td) + 0.3) {
+            if (Math.abs((newX + tw) - (ox - ow)) < SNAP_DIST) newX = ox - ow - tw;
+            if (Math.abs((newX - tw) - (ox + ow)) < SNAP_DIST) newX = ox + ow + tw;
+          }
+          // Snap Z edges
+          if (Math.abs(newX - ox) < Math.max(ow, tw) + 0.3) {
+            if (Math.abs((newZ + td) - (oz - od)) < SNAP_DIST) newZ = oz - od - td;
+            if (Math.abs((newZ - td) - (oz + od)) < SNAP_DIST) newZ = oz + od + td;
+          }
+          // Align same axis (objects side by side → same Z or same X)
+          if (Math.abs(newZ - oz) < SNAP_DIST && Math.abs(newX - ox) < ow + tw + 0.5) newZ = oz;
+          if (Math.abs(newX - ox) < SNAP_DIST && Math.abs(newZ - oz) < od + td + 0.5) newX = ox;
         }
 
         obj.mesh.position.x = newX;
@@ -726,13 +749,20 @@ export default function SceneEditor() {
 
   const addObject = (item: CatalogItem) => {
     if (!sceneRef.current) return;
-    // Place at center of view (camera target)
-    const bounds = buildingBoundsRef.current;
-    const centerX = bounds ? (bounds.minX + bounds.maxX) / 2 : 0;
-    const centerZ = bounds ? (bounds.minZ + bounds.maxZ) / 2 : 0;
-    // Small random offset so objects don't stack exactly
-    const offset = (Math.random() - 0.5) * 2;
-    const pos = new THREE.Vector3(centerX + offset, 0, centerZ + offset);
+    let pos: THREE.Vector3;
+    if (fpMode && cameraRef.current) {
+      // Spawn 2m in front of camera
+      const cam = cameraRef.current;
+      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+      dir.y = 0; dir.normalize();
+      pos = new THREE.Vector3(cam.position.x + dir.x * 2, 0, cam.position.z + dir.z * 2);
+    } else {
+      const bounds = buildingBoundsRef.current;
+      const centerX = bounds ? (bounds.minX + bounds.maxX) / 2 : 0;
+      const centerZ = bounds ? (bounds.minZ + bounds.maxZ) / 2 : 0;
+      const offset = (Math.random() - 0.5) * 2;
+      pos = new THREE.Vector3(centerX + offset, 0, centerZ + offset);
+    }
     const obj = createPlacedObject(item, pos);
     sceneRef.current.add(obj.mesh);
     objectsRef.current.push(obj);
@@ -948,6 +978,7 @@ export default function SceneEditor() {
 
   const exitFpMode = () => {
     setFpMode(false);
+    setFpEditMode(false);
     fpKeysRef.current.clear();
     if (orbitRef.current && cameraRef.current) {
       orbitRef.current.enabled = true;
@@ -967,8 +998,14 @@ export default function SceneEditor() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { exitFpMode(); return; }
+      // FP edit mode shortcuts
+      if (fpEditMode && (e.key === 'r' || e.key === 'R') && selectedRef.current) {
+        rotateSelected(45); return;
+      }
+      if (fpEditMode && e.key === 'Delete' && selectedRef.current) {
+        deleteSelected(); return;
+      }
       fpKeysRef.current.add(e.key.toLowerCase());
-      // Prevent scroll on arrow keys / space
       if (['w','a','s','d',' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
@@ -999,7 +1036,7 @@ export default function SceneEditor() {
     const onMouseUp = (e: MouseEvent) => {
       mouseDown = false;
       el.style.cursor = 'crosshair';
-      // Detect click (no drag) → toggle doors
+      // Detect click (no drag) → toggle doors or select objects in edit mode
       const dx = e.clientX - clickStartX;
       const dy = e.clientY - clickStartY;
       if (Math.abs(dx) < 4 && Math.abs(dy) < 4 && cameraRef.current) {
@@ -1009,10 +1046,12 @@ export default function SceneEditor() {
           -((e.clientY - rect.top) / rect.height) * 2 + 1
         );
         raycasterRef.current.setFromCamera(mouse, cameraRef.current);
+
+        // Check doors first
         const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
-        const hits = raycasterRef.current.intersectObjects(doorMeshes, true);
-        if (hits.length > 0) {
-          let obj = hits[0].object as THREE.Object3D;
+        const doorHits = raycasterRef.current.intersectObjects(doorMeshes, true);
+        if (doorHits.length > 0) {
+          let obj = doorHits[0].object as THREE.Object3D;
           let entry = doorPanelsRef.current.find(d => d.pivot === obj || d.panel === obj);
           while (!entry && obj.parent) { obj = obj.parent; entry = doorPanelsRef.current.find(d => d.pivot === obj); }
           if (entry) {
@@ -1020,6 +1059,29 @@ export default function SceneEditor() {
             ud.isOpen = !ud.isOpen;
             entry.pivot.rotation.y = ud.isOpen ? -ud.endAngle : -ud.startAngle;
             setStatusMsg(ud.isOpen ? 'Ușă deschisă' : 'Ușă închisă');
+            return;
+          }
+        }
+
+        // In FP edit mode: click objects to select/deselect
+        if (fpEditMode) {
+          const meshes = objectsRef.current.map(o => o.mesh);
+          const objHits = raycasterRef.current.intersectObjects(meshes, true);
+          if (objHits.length > 0) {
+            let clicked = objHits[0].object as THREE.Object3D;
+            let found = objectsRef.current.find(o => o.mesh === clicked);
+            while (!found && clicked.parent) { clicked = clicked.parent; found = objectsRef.current.find(o => o.mesh === clicked); }
+            if (found) {
+              if (selectedRef.current) highlightObject(selectedRef.current, false);
+              selectedRef.current = found;
+              setSelectedObj(found);
+              highlightObject(found, true);
+              setStatusMsg(`Selectat: ${found.name} | R=rotire | Del=sterge`);
+            }
+          } else {
+            if (selectedRef.current) highlightObject(selectedRef.current, false);
+            selectedRef.current = null;
+            setSelectedObj(null);
           }
         }
       }
@@ -1033,6 +1095,21 @@ export default function SceneEditor() {
     window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('contextmenu', onContextMenu);
     el.style.cursor = 'crosshair';
+
+    // Wall collision check — returns true if position is too close to any wall
+    const PLAYER_RADIUS = 0.25;
+    const checkWallCollision = (x: number, z: number): boolean => {
+      for (const w of wallSegmentsRef.current) {
+        const wx = w.x2 - w.x1, wz = w.z2 - w.z1;
+        const len2 = wx * wx + wz * wz;
+        if (len2 < 0.01) continue;
+        const t = Math.max(0, Math.min(1, ((x - w.x1) * wx + (z - w.z1) * wz) / len2));
+        const cx = w.x1 + t * wx, cz = w.z1 + t * wz;
+        const dist = Math.sqrt((x - cx) ** 2 + (z - cz) ** 2);
+        if (dist < PLAYER_RADIUS + w.thickness / 2) return true;
+      }
+      return false;
+    };
 
     // FP tick called from main animation loop (no separate rAF)
     fpTickRef.current = () => {
@@ -1048,10 +1125,22 @@ export default function SceneEditor() {
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
       right.y = 0; right.normalize();
 
-      if (keys.has('w') || keys.has('arrowup')) cam.position.addScaledVector(forward, speed);
-      if (keys.has('s') || keys.has('arrowdown')) cam.position.addScaledVector(forward, -speed);
-      if (keys.has('a') || keys.has('arrowleft')) cam.position.addScaledVector(right, -speed);
-      if (keys.has('d') || keys.has('arrowright')) cam.position.addScaledVector(right, speed);
+      // Calculate desired position
+      let nx = cam.position.x, nz = cam.position.z;
+      if (keys.has('w') || keys.has('arrowup')) { nx += forward.x * speed; nz += forward.z * speed; }
+      if (keys.has('s') || keys.has('arrowdown')) { nx -= forward.x * speed; nz -= forward.z * speed; }
+      if (keys.has('a') || keys.has('arrowleft')) { nx -= right.x * speed; nz -= right.z * speed; }
+      if (keys.has('d') || keys.has('arrowright')) { nx += right.x * speed; nz += right.z * speed; }
+
+      // Slide along walls: try full move, then each axis separately
+      if (!checkWallCollision(nx, nz)) {
+        cam.position.x = nx;
+        cam.position.z = nz;
+      } else if (!checkWallCollision(nx, cam.position.z)) {
+        cam.position.x = nx;
+      } else if (!checkWallCollision(cam.position.x, nz)) {
+        cam.position.z = nz;
+      }
       cam.position.y = 1.7;
     };
 
@@ -1276,6 +1365,16 @@ export default function SceneEditor() {
           >
             Walk
           </button>
+          {fpMode && (
+            <button
+              onClick={() => { setFpEditMode(!fpEditMode); setShowCatalog(!fpEditMode); }}
+              className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
+              style={{ background: fpEditMode ? '#f59e0b' : 'var(--panel-border)', color: fpEditMode ? '#fff' : 'var(--foreground)' }}
+              title="Editare obiecte in Walk mode"
+            >
+              Edit
+            </button>
+          )}
           <button
             onClick={() => { if (measureMode) { clearMeasure(); } setMeasureMode(!measureMode); }}
             className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
