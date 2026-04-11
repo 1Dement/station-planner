@@ -238,13 +238,24 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     addEdgeSegments(pts, wallSegments, isBig, isBig ? 0.20 : 0.12);
   }
 
-  // === HATCH CAP (top surface covering wall thickness) ===
+  // === HATCH as SOLID VOLUME (extruded outer - holes) ===
   if (data.hatchOuter && data.hatchHoles) {
+    // Top + bottom caps
     const cap = buildHatchCap(data.hatchOuter, data.hatchHoles, WALL_HEIGHT, wallMat);
     group.add(cap);
+
+    // Vertical walls for hatch outer boundary
+    const outerWalls = buildWallFaces(data.hatchOuter, WALL_HEIGHT, wallMat);
+    group.add(outerWalls);
+
+    // Vertical walls for each hole boundary (inner faces)
+    for (const hole of data.hatchHoles) {
+      const holeWalls = buildWallFaces(hole, WALL_HEIGHT, wallMat);
+      group.add(holeWalls);
+    }
   }
 
-  // === DOORS (aligned to nearest wall, uniform top) ===
+  // === DOORS (panels only, no frame geometry — walls are solid) ===
   if (data.doors) {
     const doorArcMat = new THREE.LineBasicMaterial({ color: 0xd4a843, opacity: 0.5, transparent: true });
     const DOOR_H = 2.1;
@@ -252,56 +263,13 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     for (const door of data.doors as DoorData[]) {
       const dw = door.width;
 
-      // Normalize DXF angles to [0, 360) — 360° = 0°
       const startDeg = ((door.startAngle || 0) % 360 + 360) % 360;
       const endDeg = ((door.endAngle || 90) % 360 + 360) % 360;
       const startRad = startDeg * Math.PI / 180;
 
-      // DXF arcs go CCW: endAngle may wrap through 0°
       let arcEndDeg = endDeg;
       if (arcEndDeg <= startDeg) arcEndDeg += 360;
       const arcEndRad = arcEndDeg * Math.PI / 180;
-
-      // Find nearest wall to get direction
-      let wallAngle = startRad;
-      let bestDist = Infinity;
-      for (const ws of wallSegments) {
-        const wx = ws.x2 - ws.x1, wz = ws.z2 - ws.z1;
-        const len2 = wx * wx + wz * wz;
-        if (len2 < 0.01) continue;
-        const t = Math.max(0, Math.min(1, ((door.x - ws.x1) * wx + (door.z - ws.z1) * wz) / len2));
-        const cx = ws.x1 + t * wx, cz = ws.z1 + t * wz;
-        const dist = Math.sqrt((door.x - cx) ** 2 + (door.z - cz) ** 2);
-        if (dist < bestDist && dist < 1.0) { bestDist = dist; wallAngle = Math.atan2(wz, wx); }
-      }
-      // Snap to 90°
-      const snapAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2, -Math.PI];
-      let minDiff = Infinity;
-      for (const sa of snapAngles) { const diff = Math.abs(wallAngle - sa); if (diff < minDiff) { minDiff = diff; wallAngle = sa; } }
-
-      const cosA = Math.cos(wallAngle), sinA = Math.sin(wallAngle);
-      const latchX = door.x + cosA * dw, latchZ = door.z + sinA * dw;
-
-      // Door jambs (thin wall-colored strips at edges of opening)
-      const JAMB_W = 0.04;
-      const WALL_T = 0.20;
-      const jambMat = wallMat;
-      // Hinge side jamb
-      const j1 = new THREE.Mesh(new THREE.BoxGeometry(JAMB_W, DOOR_H, WALL_T), jambMat);
-      j1.position.set(door.x, DOOR_H / 2, door.z);
-      j1.rotation.y = -wallAngle;
-      group.add(j1);
-      // Latch side jamb
-      const j2 = new THREE.Mesh(new THREE.BoxGeometry(JAMB_W, DOOR_H, WALL_T), jambMat);
-      j2.position.set(latchX, DOOR_H / 2, latchZ);
-      j2.rotation.y = -wallAngle;
-      group.add(j2);
-      // Header (top of opening)
-      const midX = (door.x + latchX) / 2, midZ = (door.z + latchZ) / 2;
-      const header = new THREE.Mesh(new THREE.BoxGeometry(dw + JAMB_W * 2, 0.04, WALL_T), jambMat);
-      header.position.set(midX, DOOR_H, midZ);
-      header.rotation.y = -wallAngle;
-      group.add(header);
 
       // Door panel (movable)
       doorPanels.push({
