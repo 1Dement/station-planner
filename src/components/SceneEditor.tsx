@@ -1132,7 +1132,12 @@ export default function SceneEditor() {
         exitFpMode();
         return;
       }
-      // FP edit mode shortcuts
+      // R to rotate while dragging or with selected object
+      if ((e.key === 'r' || e.key === 'R') && fpDraggingRef.current) {
+        fpDraggingRef.current.mesh.rotation.y += Math.PI / 4;
+        setStatusMsg(`Rotit: ${fpDraggingRef.current.name} 45°`);
+        return;
+      }
       if (fpEditMode && (e.key === 'r' || e.key === 'R') && selectedRef.current) {
         rotateSelected(45); return;
       }
