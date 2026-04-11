@@ -953,14 +953,13 @@ export default function SceneEditor() {
     setFpMode(true);
     orbitRef.current.enabled = false;
     const cam = cameraRef.current;
+    // Start at entrance (sliding door gap between front windows, Z≈-6.5)
     const bounds = buildingBoundsRef.current;
-    const cx = bounds ? (bounds.minX + bounds.maxX) / 2 : 0;
-    const cz = bounds ? (bounds.minZ + bounds.maxZ) / 2 : 0;
-    cam.position.set(cx, 1.7, cz);
-    // Calculate initial yaw from current look direction
-    const dir = new THREE.Vector3();
-    cam.getWorldDirection(dir);
-    fpYawRef.current = Math.atan2(-dir.x, -dir.z);
+    const entranceX = bounds ? (bounds.minX + bounds.maxX) / 2 - 1 : -3;
+    const entranceZ = bounds ? bounds.minZ + 0.5 : -6.2;
+    cam.position.set(entranceX, 1.7, entranceZ);
+    // Look toward interior (+Z direction)
+    fpYawRef.current = Math.PI;
     fpPitchRef.current = 0;
     cam.rotation.order = 'YXZ';
     cam.rotation.set(0, fpYawRef.current, 0, 'YXZ');
