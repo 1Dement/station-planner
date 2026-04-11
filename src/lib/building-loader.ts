@@ -214,12 +214,17 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
 
   let extMinX = Infinity, extMaxX = -Infinity, extMinZ = Infinity, extMaxZ = -Infinity;
 
-  // === WALL SEGMENTS (for snap/collision only, no rendering — hatch handles visuals) ===
+  // === WALL FACES ===
   for (const wall of data.walls) {
     const pts = wall.points;
     if (pts.length < 3 || wall.area < 0.05) continue;
 
     const isBig = wall.area > 50;
+    const wallH = WALL_HEIGHT;
+
+    // Render ALL walls as solid vertical faces
+    const mesh = buildWallFaces(pts, wallH, wallMat);
+    group.add(mesh);
 
     for (const [x, z] of pts) {
       extMinX = Math.min(extMinX, x); extMaxX = Math.max(extMaxX, x);
