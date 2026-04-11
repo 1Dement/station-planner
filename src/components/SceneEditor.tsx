@@ -869,16 +869,20 @@ export default function SceneEditor() {
           }
         }
 
-        // Raycast ALL scene objects to find what's truly closest
-        const allHittable = [...objectsRef.current.map(o => o.mesh), ...doorPanelsRef.current.map(d => d.pivot)];
-        const sceneHits = raycasterRef.current.intersectObjects(sceneRef.current!.children, true);
-        const objHits = raycasterRef.current.intersectObjects(allHittable, true);
+        // Find building walls to check occlusion
+        const buildingGroup = sceneRef.current!.children.find(c => c.userData?.type === 'building');
+        const wallDist = buildingGroup
+          ? raycasterRef.current.intersectObject(buildingGroup, true)
+              .filter(h => h.face && Math.abs(h.face.normal.y) < 0.3) // only vertical walls
+              .map(h => h.distance)[0] ?? Infinity
+          : Infinity;
 
-        // Only select if the object hit is the FIRST thing the ray touches (not behind walls/floor)
-        const firstSceneDist = sceneHits.length > 0 ? sceneHits[0].distance : Infinity;
-        const firstObjDist = objHits.length > 0 ? objHits[0].distance : Infinity;
+        const objHits = raycasterRef.current.intersectObjects(
+          objectsRef.current.map(o => o.mesh), true
+        );
 
-        if (objHits.length > 0 && firstObjDist <= firstSceneDist + 0.01) {
+        // Only select if object is CLOSER than any wall (not behind a wall)
+        if (objHits.length > 0 && objHits[0].distance < wallDist) {
           let clicked = objHits[0].object as THREE.Object3D;
           let obj = objectsRef.current.find(o => o.mesh === clicked);
           while (!obj && clicked.parent) { clicked = clicked.parent; obj = objectsRef.current.find(o => o.mesh === clicked); }
