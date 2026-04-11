@@ -953,15 +953,18 @@ export default function SceneEditor() {
     setFpMode(true);
     orbitRef.current.enabled = false;
     const cam = cameraRef.current;
-    // Place camera at eye level inside the building
     const bounds = buildingBoundsRef.current;
     const cx = bounds ? (bounds.minX + bounds.maxX) / 2 : 0;
     const cz = bounds ? (bounds.minZ + bounds.maxZ) / 2 : 0;
     cam.position.set(cx, 1.7, cz);
-    fpYawRef.current = 0;
+    // Calculate initial yaw from current look direction
+    const dir = new THREE.Vector3();
+    cam.getWorldDirection(dir);
+    fpYawRef.current = Math.atan2(-dir.x, -dir.z);
     fpPitchRef.current = 0;
     cam.rotation.order = 'YXZ';
-    setStatusMsg('Mod walkthrough: WASD + mouse | ESC = iesire');
+    cam.rotation.set(0, fpYawRef.current, 0, 'YXZ');
+    setStatusMsg('Walkthrough: WASD mers | Click+drag rotire | ESC iesire');
   };
 
   const exitFpMode = () => {
@@ -974,30 +977,56 @@ export default function SceneEditor() {
     }
   };
 
-  // First-person controls
+  // First-person controls — no pointer lock, drag to look, WASD to move
   useEffect(() => {
     if (!fpMode) return;
     const el = rendererRef.current?.domElement;
     if (!el) return;
 
+    let mouseDown = false;
+    let lastMX = 0, lastMY = 0;
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { exitFpMode(); return; }
       fpKeysRef.current.add(e.key.toLowerCase());
+      // Prevent scroll on arrow keys / space
+      if (['w','a','s','d',' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => { fpKeysRef.current.delete(e.key.toLowerCase()); };
-    const onMouseMove = (e: MouseEvent) => {
-      if (document.pointerLockElement !== el) return;
-      fpYawRef.current -= e.movementX * 0.002;
-      fpPitchRef.current -= e.movementY * 0.002;
-      fpPitchRef.current = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, fpPitchRef.current));
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button === 0 || e.button === 2) {
+        mouseDown = true;
+        lastMX = e.clientX;
+        lastMY = e.clientY;
+        el.style.cursor = 'grabbing';
+      }
     };
-    const onClick = () => { el.requestPointerLock(); };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!mouseDown) return;
+      const dx = e.clientX - lastMX;
+      const dy = e.clientY - lastMY;
+      lastMX = e.clientX;
+      lastMY = e.clientY;
+      fpYawRef.current -= dx * 0.003;
+      fpPitchRef.current -= dy * 0.003;
+      fpPitchRef.current = Math.max(-1.2, Math.min(1.2, fpPitchRef.current));
+    };
+    const onMouseUp = () => { mouseDown = false; el.style.cursor = 'crosshair'; };
+    const onContextMenu = (e: Event) => { e.preventDefault(); };
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
-    el.addEventListener('mousemove', onMouseMove);
-    el.addEventListener('click', onClick);
+    el.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    el.addEventListener('contextmenu', onContextMenu);
+    el.style.cursor = 'crosshair';
 
+    // Movement tick inside the main animation already runs via OrbitControls update
+    // But we need our own tick for camera updates
     let animId: number;
     const tick = () => {
       animId = requestAnimationFrame(tick);
@@ -1006,17 +1035,17 @@ export default function SceneEditor() {
 
       cam.rotation.set(fpPitchRef.current, fpYawRef.current, 0, 'YXZ');
 
-      const speed = 0.08;
+      const speed = fpKeysRef.current.has('shift') ? 0.16 : 0.08;
       const keys = fpKeysRef.current;
       const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
       forward.y = 0; forward.normalize();
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
       right.y = 0; right.normalize();
 
-      if (keys.has('w')) cam.position.addScaledVector(forward, speed);
-      if (keys.has('s')) cam.position.addScaledVector(forward, -speed);
-      if (keys.has('a')) cam.position.addScaledVector(right, -speed);
-      if (keys.has('d')) cam.position.addScaledVector(right, speed);
+      if (keys.has('w') || keys.has('arrowup')) cam.position.addScaledVector(forward, speed);
+      if (keys.has('s') || keys.has('arrowdown')) cam.position.addScaledVector(forward, -speed);
+      if (keys.has('a') || keys.has('arrowleft')) cam.position.addScaledVector(right, -speed);
+      if (keys.has('d') || keys.has('arrowright')) cam.position.addScaledVector(right, speed);
       cam.position.y = 1.7;
     };
     tick();
@@ -1025,9 +1054,11 @@ export default function SceneEditor() {
       cancelAnimationFrame(animId);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
-      el.removeEventListener('mousemove', onMouseMove);
-      el.removeEventListener('click', onClick);
-      if (document.pointerLockElement === el) document.exitPointerLock();
+      el.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      el.removeEventListener('contextmenu', onContextMenu);
+      el.style.cursor = 'default';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fpMode]);
