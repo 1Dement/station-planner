@@ -750,15 +750,16 @@ export default function SceneEditor() {
     const el = rendererRef.current?.domElement;
     if (!el) return;
 
-    let mouseIsDown = false;
+    let readyToDrag = false;
 
+    // Use CAPTURE phase to intercept before OrbitControls
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       if (fpModeRef.current) return;
       mouseDownPosRef.current.set(e.clientX, e.clientY);
-      mouseIsDown = true;
+      readyToDrag = false;
 
-      // If clicking on the selected object, prepare for drag and block orbit
+      // If clicking on the selected object, block OrbitControls and prepare drag
       if (selectedRef.current) {
         const rect = el.getBoundingClientRect();
         const mouse = new THREE.Vector2(
@@ -768,8 +769,7 @@ export default function SceneEditor() {
         raycasterRef.current.setFromCamera(mouse, cameraRef.current!);
         const hits = raycasterRef.current.intersectObject(selectedRef.current.mesh, true);
         if (hits.length > 0) {
-          // Clicking directly on the selected object — block orbit, prepare drag
-          if (orbitRef.current) orbitRef.current.enabled = false;
+          readyToDrag = true;
           const floorPoint = getFloorIntersection(e.clientX, e.clientY);
           if (floorPoint) {
             dragOffsetRef.current.set(
@@ -777,7 +777,9 @@ export default function SceneEditor() {
               selectedRef.current.mesh.position.z - floorPoint.z
             );
           }
-          e.stopPropagation();
+          // BLOCK OrbitControls from receiving this event
+          e.stopImmediatePropagation();
+          e.preventDefault();
         }
       }
     };
@@ -786,7 +788,7 @@ export default function SceneEditor() {
       if (fpModeRef.current) return;
 
       // Drag the SELECTED object after 8px threshold
-      if (selectedRef.current && !isDraggingRef.current && mouseIsDown && !orbitRef.current?.enabled) {
+      if (selectedRef.current && !isDraggingRef.current && readyToDrag) {
         const dx = e.clientX - mouseDownPosRef.current.x;
         const dy = e.clientY - mouseDownPosRef.current.y;
         if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
@@ -837,13 +839,8 @@ export default function SceneEditor() {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      mouseIsDown = false;
+      readyToDrag = false;
       if (fpModeRef.current) return;
-
-      // Re-enable orbit if we blocked it for potential drag that didn't happen
-      if (!isDraggingRef.current && orbitRef.current && !orbitRef.current.enabled) {
-        orbitRef.current.enabled = true;
-      }
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
@@ -925,12 +922,12 @@ export default function SceneEditor() {
       }
     };
 
-    el.addEventListener('mousedown', handleMouseDown);
+    el.addEventListener('mousedown', handleMouseDown, true); // capture phase!
     el.addEventListener('mousemove', handleMouseMove);
     el.addEventListener('mouseup', handleMouseUp);
 
     return () => {
-      el.removeEventListener('mousedown', handleMouseDown);
+      el.removeEventListener('mousedown', handleMouseDown, true);
       el.removeEventListener('mousemove', handleMouseMove);
       el.removeEventListener('mouseup', handleMouseUp);
     };
