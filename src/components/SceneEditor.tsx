@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CATALOG, CATEGORIES, CatalogItem, getCatalogByCategory } from '@/lib/catalog';
 import {
   PlacedObject, createPlacedObject, highlightObject,
@@ -29,6 +34,8 @@ export default function SceneEditor() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const composerRef = useRef<any>(null);
   const orbitRef = useRef<OrbitControls | null>(null);
   const objectsRef = useRef<PlacedObject[]>([]);
   const selectedRef = useRef<PlacedObject | null>(null);
@@ -41,6 +48,7 @@ export default function SceneEditor() {
   const buildingBoundsRef = useRef<{ minX: number; maxX: number; minZ: number; maxZ: number } | null>(null);
   const wallSegmentsRef = useRef<WallSegment[]>([]);
   const doorPanelsRef = useRef<Array<{ panel: THREE.Object3D; pivot: THREE.Group; info: DoorPanel }>>([]);
+  const ceilingRef = useRef<THREE.Mesh | null>(null);
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef(new THREE.Vector3());
   const mouseDownPosRef = useRef(new THREE.Vector2());
@@ -56,12 +64,129 @@ export default function SceneEditor() {
   const [roomWidth, setRoomWidth] = useState(DEFAULT_ROOM_WIDTH);
   const [roomDepth, setRoomDepth] = useState(DEFAULT_ROOM_DEPTH);
   const [pointCloudLoaded, setPointCloudLoaded] = useState(false);
+  const [showCeiling, setShowCeiling] = useState(false);
+  const [fpMode, setFpMode] = useState(false);
+  const [measureMode, setMeasureMode] = useState(false);
+  const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
+  const measureLineRef = useRef<THREE.Line | null>(null);
+  const measureLabelRef = useRef<THREE.Sprite | null>(null);
+  const fpKeysRef = useRef<Set<string>>(new Set());
+  const fpYawRef = useRef(0);
+  const fpPitchRef = useRef(0);
+
+  // Undo/redo
+  interface HistoryEntry { id: string; x: number; z: number; ry: number }
+  const undoStackRef = useRef<HistoryEntry[][]>([]);
+  const redoStackRef = useRef<HistoryEntry[][]>([]);
 
   // Keep refs in sync for use in event handlers
   useEffect(() => { roomWidthRef.current = roomWidth; }, [roomWidth]);
   useEffect(() => { roomDepthRef.current = roomDepth; }, [roomDepth]);
 
   const snap = (v: number) => Math.round(v / GRID_SNAP) * GRID_SNAP;
+
+  const saveSnapshot = () => {
+    const snapshot = objectsRef.current.map(o => ({
+      id: o.id, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
+    }));
+    undoStackRef.current.push(snapshot);
+    redoStackRef.current = [];
+  };
+
+  const applySnapshot = (snap: { id: string; x: number; z: number; ry: number }[]) => {
+    for (const s of snap) {
+      const obj = objectsRef.current.find(o => o.id === s.id);
+      if (obj) { obj.mesh.position.x = s.x; obj.mesh.position.z = s.z; obj.mesh.rotation.y = s.ry; }
+    }
+    checkAllCollisions();
+  };
+
+  const undo = () => {
+    if (undoStackRef.current.length === 0) return;
+    const current = objectsRef.current.map(o => ({
+      id: o.id, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
+    }));
+    redoStackRef.current.push(current);
+    const prev = undoStackRef.current.pop()!;
+    applySnapshot(prev);
+    setStatusMsg('Undo');
+  };
+
+  const clearMeasure = () => {
+    if (measureLineRef.current && sceneRef.current) {
+      sceneRef.current.remove(measureLineRef.current);
+      measureLineRef.current.geometry.dispose();
+      measureLineRef.current = null;
+    }
+    if (measureLabelRef.current && sceneRef.current) {
+      sceneRef.current.remove(measureLabelRef.current);
+      if (measureLabelRef.current.material instanceof THREE.SpriteMaterial) {
+        measureLabelRef.current.material.map?.dispose();
+        measureLabelRef.current.material.dispose();
+      }
+      measureLabelRef.current = null;
+    }
+    measurePt1Ref.current = null;
+  };
+
+  const handleMeasureClick = (clientX: number, clientY: number) => {
+    const pt = getFloorIntersection(clientX, clientY);
+    if (!pt || !sceneRef.current) return;
+
+    if (!measurePt1Ref.current) {
+      // First click
+      clearMeasure();
+      measurePt1Ref.current = pt.clone();
+      setStatusMsg('Masurare: click al doilea punct');
+    } else {
+      // Second click — draw line + label
+      const p1 = measurePt1Ref.current;
+      const p2 = pt.clone();
+      const dist = p1.distanceTo(p2);
+
+      const lineMat = new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 2 });
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(p1.x, 0.05, p1.z),
+        new THREE.Vector3(p2.x, 0.05, p2.z),
+      ]);
+      const line = new THREE.Line(lineGeo, lineMat);
+      sceneRef.current.add(line);
+      measureLineRef.current = line;
+
+      // Label
+      const canvas = document.createElement('canvas');
+      canvas.width = 256; canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'rgba(220,40,40,0.85)';
+      ctx.roundRect(0, 0, 256, 64, 8);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 30px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${dist.toFixed(2)} m`, 128, 32);
+      const tex = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+      sprite.position.set((p1.x + p2.x) / 2, 0.5, (p1.z + p2.z) / 2);
+      sprite.scale.set(1.2, 0.3, 1);
+      sceneRef.current.add(sprite);
+      measureLabelRef.current = sprite;
+
+      setStatusMsg(`Distanta: ${dist.toFixed(2)} m`);
+      measurePt1Ref.current = null;
+    }
+  };
+
+  const redo = () => {
+    if (redoStackRef.current.length === 0) return;
+    const current = objectsRef.current.map(o => ({
+      id: o.id, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
+    }));
+    undoStackRef.current.push(current);
+    const next = redoStackRef.current.pop()!;
+    applySnapshot(next);
+    setStatusMsg('Redo');
+  };
 
   const getFloorIntersection = useCallback((clientX: number, clientY: number): THREE.Vector3 | null => {
     if (!rendererRef.current || !cameraRef.current) return null;
@@ -81,8 +206,7 @@ export default function SceneEditor() {
     if (!canvasRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
-    scene.fog = new THREE.FogExp2(0x1a1a2e, 0.015);
+    scene.background = new THREE.Color(0xeaecf0);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -98,9 +222,14 @@ export default function SceneEditor() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.0;
     canvasRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // Indoor environment lighting (reflections + soft ambient)
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmremGenerator.dispose();
 
     const orbit = new OrbitControls(camera, renderer.domElement);
     orbit.enableDamping = true;
@@ -116,34 +245,36 @@ export default function SceneEditor() {
     };
     orbitRef.current = orbit;
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Lights — warm indoor setup
+    const ambientLight = new THREE.AmbientLight(0xfff8f0, 0.4);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(8, 12, 8);
+    const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.8);
+    dirLight.position.set(6, 10, 8);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.set(2048, 2048);
-    dirLight.shadow.camera.left = -20;
-    dirLight.shadow.camera.right = 20;
-    dirLight.shadow.camera.top = 20;
-    dirLight.shadow.camera.bottom = -20;
-    dirLight.shadow.camera.near = 0.1;
-    dirLight.shadow.camera.far = 50;
-    dirLight.shadow.bias = -0.001;
+    dirLight.shadow.camera.left = -15;
+    dirLight.shadow.camera.right = 15;
+    dirLight.shadow.camera.top = 15;
+    dirLight.shadow.camera.bottom = -15;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 40;
+    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.radius = 4;
     scene.add(dirLight);
 
-    const fillLight = new THREE.DirectionalLight(0x6699ff, 0.3);
-    fillLight.position.set(-5, 5, -5);
+    const fillLight = new THREE.DirectionalLight(0xc4d8f0, 0.5);
+    fillLight.position.set(-6, 6, -4);
     scene.add(fillLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x362d1b, 0.4);
+    const hemiLight = new THREE.HemisphereLight(0xddeeff, 0xe8dcc8, 0.6);
     scene.add(hemiLight);
 
     // Load building from DXF data
     const buildingResult = loadBuildingIntoScene(scene);
     buildingBoundsRef.current = buildingResult.exteriorBounds;
     wallSegmentsRef.current = buildingResult.wallSegments;
+    ceilingRef.current = buildingResult.ceiling;
     const bw = buildingResult.exteriorBounds.maxX - buildingResult.exteriorBounds.minX;
     const bd = buildingResult.exteriorBounds.maxZ - buildingResult.exteriorBounds.minZ;
     setRoomWidth(Math.ceil(bw));
@@ -160,8 +291,8 @@ export default function SceneEditor() {
     );
     orbit.update();
 
-    const gridHelper = new THREE.GridHelper(40, 80, 0x0f3460, 0x0a1e3d);
-    gridHelper.position.y = 0.002;
+    const gridHelper = new THREE.GridHelper(40, 40, 0xc0c0c0, 0xd4d4d4);
+    gridHelper.position.y = 0.005;
     scene.add(gridHelper);
 
     // Place furniture objects from DXF
@@ -216,11 +347,22 @@ export default function SceneEditor() {
       }
     }
 
+    // Post-processing: SSAO for depth
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const ssaoPass = new SSAOPass(scene, camera, canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+    ssaoPass.kernelRadius = 8;
+    ssaoPass.minDistance = 0.005;
+    ssaoPass.maxDistance = 0.1;
+    composer.addPass(ssaoPass);
+    composer.addPass(new OutputPass());
+    composerRef.current = composer;
+
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
       orbit.update();
-      renderer.render(scene, camera);
+      composer.render();
     };
     animate();
 
@@ -232,11 +374,13 @@ export default function SceneEditor() {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      composer.setSize(w, h);
     };
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      composer.dispose();
       renderer.dispose();
       if (canvasRef.current && renderer.domElement.parentNode === canvasRef.current) {
         canvasRef.current.removeChild(renderer.domElement);
@@ -429,6 +573,7 @@ export default function SceneEditor() {
             );
           }
 
+          saveSnapshot();
           isDraggingRef.current = true;
           // Disable orbit ONLY when dragging an object
           if (orbitRef.current) orbitRef.current.enabled = false;
@@ -536,7 +681,9 @@ export default function SceneEditor() {
       const dx = e.clientX - mouseDownPosRef.current.x;
       const dy = e.clientY - mouseDownPosRef.current.y;
       if (Math.abs(dx) < 3 && Math.abs(dy) < 3) {
-        // It was a click, not a drag
+        // Measure mode intercept
+        if (measureMode) { handleMeasureClick(e.clientX, e.clientY); return; }
+
         const rect = el.getBoundingClientRect();
         mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -573,15 +720,14 @@ export default function SceneEditor() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (fpMode) return; // FP mode handles its own keys
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
       if (e.key === 'Delete' && selectedRef.current) {
         deleteSelected();
       }
       if ((e.key === 'r' || e.key === 'R') && selectedRef.current) {
-        // Rotate 45 degrees
-        selectedRef.current.mesh.rotation.y += Math.PI / 4;
-        setStatusMsg(`Rotit: ${selectedRef.current.name} (${(selectedRef.current.mesh.rotation.y * 180 / Math.PI).toFixed(0)}°)`);
-        setSelectedObj({ ...selectedRef.current });
-        checkAllCollisions();
+        rotateSelected(45);
       }
       if (e.key === 'Escape') {
         if (selectedRef.current) {
@@ -657,6 +803,7 @@ export default function SceneEditor() {
 
   const rotateSelected = (deg: number) => {
     if (!selectedRef.current) return;
+    saveSnapshot();
     selectedRef.current.mesh.rotation.y += deg * (Math.PI / 180);
     setStatusMsg(`Rotit: ${selectedRef.current.name} (${(selectedRef.current.mesh.rotation.y * 180 / Math.PI).toFixed(0)}°)`);
     setSelectedObj({ ...selectedRef.current });
@@ -800,6 +947,90 @@ export default function SceneEditor() {
       orbitRef.current.update();
     }
   };
+
+  const enterFpMode = () => {
+    if (!cameraRef.current || !orbitRef.current) return;
+    setFpMode(true);
+    orbitRef.current.enabled = false;
+    const cam = cameraRef.current;
+    // Place camera at eye level inside the building
+    const bounds = buildingBoundsRef.current;
+    const cx = bounds ? (bounds.minX + bounds.maxX) / 2 : 0;
+    const cz = bounds ? (bounds.minZ + bounds.maxZ) / 2 : 0;
+    cam.position.set(cx, 1.7, cz);
+    fpYawRef.current = 0;
+    fpPitchRef.current = 0;
+    cam.rotation.order = 'YXZ';
+    setStatusMsg('Mod walkthrough: WASD + mouse | ESC = iesire');
+  };
+
+  const exitFpMode = () => {
+    setFpMode(false);
+    fpKeysRef.current.clear();
+    if (orbitRef.current && cameraRef.current) {
+      orbitRef.current.enabled = true;
+      cameraRef.current.rotation.order = 'XYZ';
+      resetCamera();
+    }
+  };
+
+  // First-person controls
+  useEffect(() => {
+    if (!fpMode) return;
+    const el = rendererRef.current?.domElement;
+    if (!el) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { exitFpMode(); return; }
+      fpKeysRef.current.add(e.key.toLowerCase());
+    };
+    const onKeyUp = (e: KeyboardEvent) => { fpKeysRef.current.delete(e.key.toLowerCase()); };
+    const onMouseMove = (e: MouseEvent) => {
+      if (document.pointerLockElement !== el) return;
+      fpYawRef.current -= e.movementX * 0.002;
+      fpPitchRef.current -= e.movementY * 0.002;
+      fpPitchRef.current = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, fpPitchRef.current));
+    };
+    const onClick = () => { el.requestPointerLock(); };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    el.addEventListener('mousemove', onMouseMove);
+    el.addEventListener('click', onClick);
+
+    let animId: number;
+    const tick = () => {
+      animId = requestAnimationFrame(tick);
+      const cam = cameraRef.current;
+      if (!cam) return;
+
+      cam.rotation.set(fpPitchRef.current, fpYawRef.current, 0, 'YXZ');
+
+      const speed = 0.08;
+      const keys = fpKeysRef.current;
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+      forward.y = 0; forward.normalize();
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+      right.y = 0; right.normalize();
+
+      if (keys.has('w')) cam.position.addScaledVector(forward, speed);
+      if (keys.has('s')) cam.position.addScaledVector(forward, -speed);
+      if (keys.has('a')) cam.position.addScaledVector(right, -speed);
+      if (keys.has('d')) cam.position.addScaledVector(right, speed);
+      cam.position.y = 1.7;
+    };
+    tick();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      el.removeEventListener('mousemove', onMouseMove);
+      el.removeEventListener('click', onClick);
+      if (document.pointerLockElement === el) document.exitPointerLock();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fpMode]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -987,6 +1218,35 @@ export default function SceneEditor() {
           </button>
           <button onClick={topView} className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80" style={{ background: 'var(--panel-border)' }} title="Vedere de sus">
             2D
+          </button>
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--panel-border)' }} />
+          <button
+            onClick={() => {
+              const next = !showCeiling;
+              setShowCeiling(next);
+              if (ceilingRef.current) ceilingRef.current.visible = next;
+            }}
+            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
+            style={{ background: showCeiling ? 'var(--accent)' : 'var(--panel-border)', color: showCeiling ? '#fff' : 'var(--foreground)' }}
+            title="Tavan on/off"
+          >
+            Tavan
+          </button>
+          <button
+            onClick={fpMode ? exitFpMode : enterFpMode}
+            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
+            style={{ background: fpMode ? 'var(--accent)' : 'var(--panel-border)', color: fpMode ? '#fff' : 'var(--foreground)' }}
+            title="Walkthrough (WASD + mouse)"
+          >
+            Walk
+          </button>
+          <button
+            onClick={() => { if (measureMode) { clearMeasure(); } setMeasureMode(!measureMode); }}
+            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
+            style={{ background: measureMode ? '#dc2626' : 'var(--panel-border)', color: measureMode ? '#fff' : 'var(--foreground)' }}
+            title="Masurare distanta"
+          >
+            Masura
           </button>
         </div>
 

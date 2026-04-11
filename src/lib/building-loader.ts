@@ -154,6 +154,33 @@ function buildHatchCap(outer: number[][], holes: number[][][], height: number, m
   return capGroup;
 }
 
+function createTileFloorTexture(): THREE.CanvasTexture {
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const tiles = 4;
+  const tileSize = size / tiles;
+  const grout = 3;
+  // Grout base
+  ctx.fillStyle = '#b0a898';
+  ctx.fillRect(0, 0, size, size);
+  // Individual tiles with subtle variation
+  for (let tx = 0; tx < tiles; tx++) {
+    for (let ty = 0; ty < tiles; ty++) {
+      const v = Math.floor(Math.random() * 10);
+      ctx.fillStyle = `rgb(${200 + v},${196 + v},${188 + v})`;
+      ctx.fillRect(tx * tileSize + grout / 2, ty * tileSize + grout / 2, tileSize - grout, tileSize - grout);
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export interface DoorPanel {
   hingeX: number;
   hingeZ: number;
@@ -168,6 +195,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   wallSegments: WallSegment[];
   dxfObjects: DxfObject[];
   doorPanels: DoorPanel[];
+  ceiling: THREE.Mesh;
 } {
   const data = buildingData as BuildingJSON;
   const group = new THREE.Group();
@@ -176,13 +204,13 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   const doorPanels: DoorPanel[] = [];
 
   const wallMat = new THREE.MeshStandardMaterial({
-    color: 0xd0c8b0,
-    roughness: 0.8,
-    metalness: 0.05,
+    color: 0xf2ede4,
+    roughness: 0.92,
+    metalness: 0,
     side: THREE.DoubleSide,
   });
 
-  const edgeMat = new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.25 });
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0xc0b8a8, transparent: true, opacity: 0.12 });
 
   let extMinX = Infinity, extMaxX = -Infinity, extMinZ = Infinity, extMaxZ = -Infinity;
 
@@ -192,7 +220,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     if (pts.length < 3 || wall.area < 0.05) continue;
 
     const isBig = wall.area > 50;
-    const wallH = isBig ? WALL_HEIGHT : INTERIOR_WALL_HEIGHT;
+    const wallH = WALL_HEIGHT;
 
     const mesh = buildWallFaces(pts, wallH, wallMat);
     group.add(mesh);
@@ -218,13 +246,8 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
 
   // === DOORS (aligned to nearest wall, uniform top) ===
   if (data.doors) {
-    const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x6B4226, roughness: 0.6, metalness: 0.1 });
-    const doorArcMat = new THREE.LineBasicMaterial({ color: 0xffc107, opacity: 0.6, transparent: true });
+    const doorArcMat = new THREE.LineBasicMaterial({ color: 0xd4a843, opacity: 0.5, transparent: true });
     const DOOR_H = 2.1;
-    const FRAME_W = 0.04;
-    const WALL_THICK = 0.20;
-    // All walls top at same height = INTERIOR_WALL_HEIGHT for interior doors
-    const UNIFORM_TOP = INTERIOR_WALL_HEIGHT;
 
     for (const door of data.doors as DoorData[]) {
       const dw = door.width;
@@ -233,92 +256,35 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const startDeg = ((door.startAngle || 0) % 360 + 360) % 360;
       const endDeg = ((door.endAngle || 90) % 360 + 360) % 360;
       const startRad = startDeg * Math.PI / 180;
-      const endRad = endDeg * Math.PI / 180;
 
       // DXF arcs go CCW: endAngle may wrap through 0°
       let arcEndDeg = endDeg;
       if (arcEndDeg <= startDeg) arcEndDeg += 360;
       const arcEndRad = arcEndDeg * Math.PI / 180;
 
-      // Find nearest wall segment to align door frame (search up to 1.0m)
-      let bestWallAngle = startRad;
-      let bestDist = Infinity;
-      for (const ws of wallSegments) {
-        const wx = ws.x2 - ws.x1, wz = ws.z2 - ws.z1;
-        const len2 = wx * wx + wz * wz;
-        if (len2 < 0.01) continue;
-        const t = Math.max(0, Math.min(1, ((door.x - ws.x1) * wx + (door.z - ws.z1) * wz) / len2));
-        const cx = ws.x1 + t * wx, cz = ws.z1 + t * wz;
-        const dist = Math.sqrt((door.x - cx) ** 2 + (door.z - cz) ** 2);
-        if (dist < bestDist && dist < 1.0) {
-          bestDist = dist;
-          bestWallAngle = Math.atan2(wz, wx);
-        }
-      }
-
-      // Snap wall angle to nearest 90° (walls are axis-aligned)
-      let wallAngle = bestWallAngle;
-      const snapAngles = [0, Math.PI/2, Math.PI, -Math.PI/2, -Math.PI];
-      let minDiff = Infinity;
-      for (const sa of snapAngles) {
-        const diff = Math.abs(wallAngle - sa);
-        if (diff < minDiff) { minDiff = diff; wallAngle = sa; }
-      }
-
-      // Frame goes along wall direction from hinge
-      const cosA = Math.cos(wallAngle), sinA = Math.sin(wallAngle);
-      const latchX = door.x + cosA * dw;
-      const latchZ = door.z + sinA * dw;
-      const midX = (door.x + latchX) / 2;
-      const midZ = (door.z + latchZ) / 2;
-
-      // Frame posts — same height as door, NOT taller
-      const hingePost = new THREE.Mesh(new THREE.BoxGeometry(FRAME_W, DOOR_H, FRAME_W), doorFrameMat);
-      hingePost.position.set(door.x, DOOR_H / 2, door.z);
-      group.add(hingePost);
-
-      const latchPost = new THREE.Mesh(new THREE.BoxGeometry(FRAME_W, DOOR_H, FRAME_W), doorFrameMat);
-      latchPost.position.set(latchX, DOOR_H / 2, latchZ);
-      group.add(latchPost);
-
-      // Top beam — flush with door top
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(dw, FRAME_W, FRAME_W), doorFrameMat);
-      beam.position.set(midX, DOOR_H, midZ);
-      beam.rotation.y = -wallAngle;
-      group.add(beam);
-
-      // Door panel (movable)
+      // Door panel (movable) — only the panel, no frame/boxes
       doorPanels.push({
         hingeX: door.x, hingeZ: door.z,
         width: dw, height: DOOR_H,
         startAngle: startRad, endAngle: arcEndRad,
       });
 
-      // Arc on floor — CCW from startAngle to arcEndAngle (normalized, no wrap)
+      // Arc on floor — CCW from startAngle to arcEndAngle
       const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
       const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.02, p.y));
       group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
-
-      // Wall above door — exact width of door opening, uniform height
-      const aboveH = UNIFORM_TOP - DOOR_H;
-      if (aboveH > 0.05) {
-        const above = new THREE.Mesh(new THREE.BoxGeometry(dw, aboveH, WALL_THICK), wallMat);
-        above.position.set(midX, DOOR_H + aboveH / 2, midZ);
-        above.rotation.y = -wallAngle;
-        above.castShadow = true;
-        group.add(above);
-      }
     }
   }
 
   // === WINDOWS (magenta rectangles = glass panels) ===
   if (data.windows) {
-    const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x88ccee, roughness: 0.05, metalness: 0.1,
-      transparent: true, opacity: 0.3, side: THREE.DoubleSide,
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: 0xddf0ff, roughness: 0.02, metalness: 0.05,
+      transparent: true, opacity: 0.15, side: THREE.DoubleSide,
+      clearcoat: 1.0, clearcoatRoughness: 0.03,
     });
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.4, metalness: 0.5 });
-    const subWallMat = new THREE.MeshStandardMaterial({ color: 0xd0c8b0, roughness: 0.8, metalness: 0.05, side: THREE.DoubleSide });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x606060, roughness: 0.25, metalness: 0.7 });
+    const subWallMat = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
     const WIN_SILL = 0.9;
     const WIN_HEIGHT = 1.4;
     const WIN_WALL_H = WALL_HEIGHT;
@@ -414,9 +380,10 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
 
           // Glass doors (2 panels, slightly open)
           const panelW = doorW / 2 - 0.05;
-          const doorGlassMat = new THREE.MeshStandardMaterial({
-            color: 0x99ccdd, roughness: 0.05, metalness: 0.1,
-            transparent: true, opacity: 0.25, side: THREE.DoubleSide,
+          const doorGlassMat = new THREE.MeshPhysicalMaterial({
+            color: 0xddf0ff, roughness: 0.02, metalness: 0.05,
+            transparent: true, opacity: 0.15, side: THREE.DoubleSide,
+            clearcoat: 1.0, clearcoatRoughness: 0.03,
           });
           const panelGeo = new THREE.BoxGeometry(panelW, DOOR_H - 0.2, 0.03);
           const leftDoor = new THREE.Mesh(panelGeo, doorGlassMat);
@@ -463,12 +430,29 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   const floorW = extMaxX - extMinX + 0.3;
   const floorD = extMaxZ - extMinZ + 0.3;
   const floorGeo = new THREE.PlaneGeometry(floorW, floorD);
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x505050, roughness: 0.85, metalness: 0.1 });
+  const tileTexture = createTileFloorTexture();
+  tileTexture.repeat.set(Math.ceil(floorW / 1.2), Math.ceil(floorD / 1.2));
+  const floorMat = new THREE.MeshStandardMaterial({ map: tileTexture, roughness: 0.55, metalness: 0.05 });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set((extMinX + extMaxX) / 2, -0.01, (extMinZ + extMaxZ) / 2);
   floor.receiveShadow = true;
   group.add(floor);
+
+  // Ceiling
+  const ceilingGeo = new THREE.PlaneGeometry(floorW, floorD);
+  const ceilingMat = new THREE.MeshStandardMaterial({
+    color: 0xfafafa,
+    roughness: 0.95,
+    metalness: 0,
+    side: THREE.DoubleSide,
+  });
+  const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.set((extMinX + extMaxX) / 2, WALL_HEIGHT, (extMinZ + extMaxZ) / 2);
+  ceiling.receiveShadow = true;
+  ceiling.visible = false; // off by default
+  group.add(ceiling);
 
   scene.add(group);
   return {
@@ -476,6 +460,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     wallSegments,
     dxfObjects: data.objects || [],
     doorPanels,
+    ceiling,
   };
 }
 
