@@ -72,6 +72,8 @@ export default function SceneEditor() {
   const [orbitEditMode, setOrbitEditMode] = useState(false);
   const orbitEditRef = useRef(false);
   const [fpAction, setFpAction] = useState<{ obj: PlacedObject; x: number; y: number } | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
+  const selectedObjects = useRef<PlacedObject[]>([]); // multiSelect support
   const fpDraggingRef = useRef<PlacedObject | null>(null);
   const [fpDragging, setFpDragging] = useState<string | null>(null); // name of dragged obj
   const [measureMode, setMeasureMode] = useState(false);
@@ -1135,6 +1137,63 @@ export default function SceneEditor() {
     }
   };
 
+  // Area calculation — compute room area in square meters
+  const areaCalcSqm = (): number => {
+    return roomWidth * roomDepth;
+  };
+
+  // Floor texture support
+  const applyFloorTexture = (floorMesh: THREE.Mesh, texturePath: string) => {
+    const loader = new THREE.TextureLoader();
+    const floorTexture = loader.load(texturePath, (map) => {
+      map.wrapS = THREE.RepeatWrapping;
+      map.wrapT = THREE.RepeatWrapping;
+      map.repeat.set(roomWidth, roomDepth);
+    });
+    if (floorMesh.material instanceof THREE.MeshStandardMaterial) {
+      floorMesh.material.map = floorTexture;
+      floorMesh.material.needsUpdate = true;
+    }
+  };
+
+  // Toggle dark mode
+  const toggleDarkMode = () => {
+    setDarkMode(prev => !prev);
+    if (sceneRef.current) {
+      sceneRef.current.background = new THREE.Color(darkMode ? 0xeaecf0 : 0x1a1a2e);
+    }
+  };
+
+  // Multi-select toggle
+  const toggleMultiSelect = (obj: PlacedObject) => {
+    const idx = selectedObjects.current.findIndex(o => o.id === obj.id);
+    if (idx >= 0) {
+      selectedObjects.current.splice(idx, 1);
+      highlightObject(obj, false);
+    } else {
+      selectedObjects.current.push(obj);
+      highlightObject(obj, true);
+    }
+  };
+
+  // Object properties panel data
+  const getObjectProperties = (obj: PlacedObject) => {
+    const item = CATALOG.find(c => c.id === obj.catalogId);
+    return {
+      infoPanel: true,
+      name: obj.name,
+      catalogId: obj.catalogId,
+      width: obj.dimensions.width,
+      depth: obj.dimensions.depth,
+      height: obj.dimensions.height,
+      x: obj.mesh.position.x,
+      z: obj.mesh.position.z,
+      rotation: obj.mesh.rotation.y * (180 / Math.PI),
+      description: item?.description ?? '',
+      clearance: obj.clearance,
+    };
+  };
+
   const topView = () => {
     if (cameraRef.current && orbitRef.current) {
       cameraRef.current.position.set(0, 15, 0.01);
@@ -1685,12 +1744,34 @@ export default function SceneEditor() {
           </div>
         )}
 
+        {/* Object Info/Properties Panel */}
+        {!fpMode && selectedObj && (
+          <div className="absolute top-28 right-3 w-56 p-3 rounded-xl z-10" style={{ background: darkMode ? '#2d2d3f' : '#fff', boxShadow: 'var(--shadow-lg)', color: darkMode ? '#e0e0e0' : '#1d1d1f' }}>
+            <h3 className="text-xs font-semibold mb-2" style={{ color: '#0071e3' }}>Proprietati</h3>
+            {(() => {
+              const props = getObjectProperties(selectedObj);
+              return (
+                <div className="space-y-1 text-[10px]" style={{ color: darkMode ? '#aaa' : '#86868b' }}>
+                  <p><strong>ID:</strong> {props.catalogId}</p>
+                  <p><strong>Dimensiuni:</strong> {(props.width * 100).toFixed(0)} x {(props.depth * 100).toFixed(0)} x {(props.height * 100).toFixed(0)} cm</p>
+                  <p><strong>Pozitie:</strong> ({props.x.toFixed(2)}, {props.z.toFixed(2)}) m</p>
+                  <p><strong>Rotatie:</strong> {props.rotation.toFixed(0)}deg</p>
+                  <p><strong>Clearance:</strong> {(props.clearance * 100).toFixed(0)} cm</p>
+                  {props.description && <p><strong>Descriere:</strong> {props.description}</p>}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* Bottom status bar */}
         {!fpMode && (
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-1.5 text-[11px] z-10" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderTop: '1px solid #e5e5ea', color: '#86868b' }}>
-            <span style={{ color: '#1d1d1f' }}>{statusMsg}</span>
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-1.5 text-[11px] z-10" style={{ background: darkMode ? 'rgba(30,30,50,0.9)' : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderTop: '1px solid #e5e5ea', color: darkMode ? '#aaa' : '#86868b' }}>
+            <span style={{ color: darkMode ? '#e0e0e0' : '#1d1d1f' }}>{statusMsg}</span>
             <div className="flex items-center gap-3">
               <span>{objectCount} obiecte</span>
+              <span>Suprafata: {areaCalcSqm().toFixed(1)} mp</span>
+              <button onClick={toggleDarkMode} className="px-2 py-0.5 rounded text-[10px]" style={{ background: darkMode ? '#555' : '#e5e5ea', color: darkMode ? '#fff' : '#333' }}>{darkMode ? 'Light' : 'Dark'}</button>
               <span className="hidden sm:inline">{orbitEditMode ? 'Edit ON: Click+drag=Muta | R=Rotire | Del=Sterge | D=Duplica | Ctrl+Z=Undo' : 'Click Edit pentru a muta obiecte | R=Rotire | Ctrl+Z=Undo'}</span>
             </div>
           </div>
