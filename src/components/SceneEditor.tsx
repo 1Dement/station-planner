@@ -1363,13 +1363,14 @@ export default function SceneEditor() {
 
         {/* Crosshair in walk mode */}
         {fpMode && (
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
-            <div style={{ width: 20, height: 20 }}>
-              <div style={{ position: 'absolute', left: 9, top: 2, width: 2, height: 6, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
-              <div style={{ position: 'absolute', left: 9, top: 12, width: 2, height: 6, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
-              <div style={{ position: 'absolute', left: 2, top: 9, width: 6, height: 2, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
-              <div style={{ position: 'absolute', left: 12, top: 9, width: 6, height: 2, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
-            </div>
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 50 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24">
+              <line x1="12" y1="4" x2="12" y2="10" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+              <line x1="12" y1="14" x2="12" y2="20" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+              <line x1="4" y1="12" x2="10" y2="12" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+              <line x1="14" y1="12" x2="20" y2="12" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+              <circle cx="12" cy="12" r="1.5" fill="white" opacity="0.5" />
+            </svg>
           </div>
         )}
 
