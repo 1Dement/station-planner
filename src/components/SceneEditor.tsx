@@ -69,8 +69,8 @@ export default function SceneEditor() {
   const [fpEditMode, setFpEditMode] = useState(false);
   const fpEditRef = useRef(false);
   const [fpAction, setFpAction] = useState<{ obj: PlacedObject; x: number; y: number } | null>(null);
-  const fpCarryRef = useRef<PlacedObject | null>(null);
-  const [fpCarrying, setFpCarrying] = useState(false);
+  const fpDraggingRef = useRef<PlacedObject | null>(null);
+  const [fpDragging, setFpDragging] = useState<string | null>(null); // name of dragged obj
   const [measureMode, setMeasureMode] = useState(false);
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
   const measureLineRef = useRef<THREE.Line | null>(null);
@@ -599,8 +599,9 @@ export default function SceneEditor() {
       const floorPoint = getFloorIntersection(e.clientX, e.clientY);
       if (floorPoint && selectedRef.current) {
         const obj = selectedRef.current;
-        let newX = snap(floorPoint.x + dragOffsetRef.current.x);
-        let newZ = snap(floorPoint.z + dragOffsetRef.current.z);
+        const G = 0.10;
+        let newX = Math.round((floorPoint.x + dragOffsetRef.current.x) / G) * G;
+        let newZ = Math.round((floorPoint.z + dragOffsetRef.current.z) / G) * G;
 
         // Auto-boundary: clamp to building exterior
         const bounds = buildingBoundsRef.current;
@@ -987,8 +988,8 @@ export default function SceneEditor() {
     setFpMode(false);
     setFpEditMode(false);
     setFpAction(null);
-    fpCarryRef.current = null;
-    setFpCarrying(false);
+    fpDraggingRef.current = null;
+    setFpDragging(null);
     fpKeysRef.current.clear();
     if (orbitRef.current && cameraRef.current) {
       orbitRef.current.enabled = true;
@@ -1008,14 +1009,15 @@ export default function SceneEditor() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (fpCarryRef.current) {
-          // Cancel carry — undo the move
+        if (fpDraggingRef.current) {
           undo();
-          fpCarryRef.current = null;
-          setFpCarrying(false);
+          fpDraggingRef.current.mesh.position.y = 0;
+          fpDraggingRef.current = null;
+          setFpDragging(null);
           setStatusMsg('Mutare anulata');
           return;
         }
+        if (fpAction) { setFpAction(null); return; }
         exitFpMode();
         return;
       }
@@ -1033,41 +1035,123 @@ export default function SceneEditor() {
     };
     const onKeyUp = (e: KeyboardEvent) => { fpKeysRef.current.delete(e.key.toLowerCase()); };
 
-    // Right-click drag = look around, Left-click = interact
+    // Snap helper for FP drag — grid 10cm + walls + tetris
+    const GRID = 0.10;
+    const SNAP_T = 0.12;
+    const snapObj = (obj: PlacedObject, x: number, z: number): [number, number] => {
+      // Grid snap first
+      let nx = Math.round(x / GRID) * GRID;
+      let nz = Math.round(z / GRID) * GRID;
+      // Wall snap (overrides grid if close)
+      if (wallSegmentsRef.current.length > 0) {
+        const r = snapToWall(nx, nz, obj.dimensions.depth, wallSegmentsRef.current, 0.5);
+        if (r.snapped) { nx = r.x; nz = r.z; obj.mesh.rotation.y = r.rotation; }
+      }
+      // Tetris snap to other objects (overrides grid if close)
+      const tw = obj.dimensions.width / 2, td = obj.dimensions.depth / 2;
+      for (const other of objectsRef.current) {
+        if (other.id === obj.id) continue;
+        const ox = other.mesh.position.x, oz = other.mesh.position.z;
+        const ow = other.dimensions.width / 2, od = other.dimensions.depth / 2;
+        if (Math.abs(nz - oz) < Math.max(od, td) + 0.3) {
+          if (Math.abs((nx + tw) - (ox - ow)) < SNAP_T) nx = ox - ow - tw;
+          if (Math.abs((nx - tw) - (ox + ow)) < SNAP_T) nx = ox + ow + tw;
+        }
+        if (Math.abs(nx - ox) < Math.max(ow, tw) + 0.3) {
+          if (Math.abs((nz + td) - (oz - od)) < SNAP_T) nz = oz - od - td;
+          if (Math.abs((nz - td) - (oz + od)) < SNAP_T) nz = oz + od + td;
+        }
+        if (Math.abs(nz - oz) < SNAP_T && Math.abs(nx - ox) < ow + tw + 0.5) nz = oz;
+        if (Math.abs(nx - ox) < SNAP_T && Math.abs(nz - oz) < od + td + 0.5) nx = ox;
+      }
+      return [nx, nz];
+    };
+
+    // Right-click drag = look, Left-click = interact/drag objects
+    let leftDown = false;
     const onMouseDown = (e: MouseEvent) => {
-      if (e.target !== el) return; // Only canvas clicks
-      if (e.button === 2) { // Right click only for look
+      if (e.target !== el) return;
+      if (e.button === 2) {
         mouseDown = true;
-        lastMX = e.clientX;
-        lastMY = e.clientY;
+        lastMX = e.clientX; lastMY = e.clientY;
         el.style.cursor = 'grabbing';
+        return;
+      }
+      if (e.button === 0 && fpEditRef.current && cameraRef.current) {
+        // Try to pick up an object
+        const rect = el.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        raycasterRef.current.setFromCamera(mouse, cameraRef.current);
+        const meshes = objectsRef.current.map(o => o.mesh);
+        const hits = raycasterRef.current.intersectObjects(meshes, true);
+        if (hits.length > 0) {
+          let clicked = hits[0].object as THREE.Object3D;
+          let found = objectsRef.current.find(o => o.mesh === clicked);
+          while (!found && clicked.parent) { clicked = clicked.parent; found = objectsRef.current.find(o => o.mesh === clicked); }
+          if (found) {
+            saveSnapshot();
+            fpDraggingRef.current = found;
+            setFpDragging(found.name);
+            if (selectedRef.current) highlightObject(selectedRef.current, false);
+            selectedRef.current = found;
+            setSelectedObj(found);
+            highlightObject(found, true);
+            found.mesh.position.y = 0.15; // lift slightly
+            el.style.cursor = 'grabbing';
+            leftDown = true;
+            return;
+          }
+        }
+        leftDown = true;
       }
     };
     const onMouseMove = (e: MouseEvent) => {
-      if (!mouseDown) return;
-      const dx = e.clientX - lastMX;
-      const dy = e.clientY - lastMY;
-      lastMX = e.clientX;
-      lastMY = e.clientY;
-      fpYawRef.current -= dx * 0.003;
-      fpPitchRef.current -= dy * 0.003;
-      fpPitchRef.current = Math.max(-1.2, Math.min(1.2, fpPitchRef.current));
+      // Right-click look
+      if (mouseDown) {
+        const dx = e.clientX - lastMX, dy = e.clientY - lastMY;
+        lastMX = e.clientX; lastMY = e.clientY;
+        fpYawRef.current -= dx * 0.003;
+        fpPitchRef.current -= dy * 0.003;
+        fpPitchRef.current = Math.max(-1.2, Math.min(1.2, fpPitchRef.current));
+        return;
+      }
+      // Left-drag: move picked object on floor plane
+      if (leftDown && fpDraggingRef.current && cameraRef.current) {
+        const rect = el.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        raycasterRef.current.setFromCamera(mouse, cameraRef.current);
+        const target = new THREE.Vector3();
+        if (raycasterRef.current.ray.intersectPlane(floorPlaneRef.current, target)) {
+          const [sx, sz] = snapObj(fpDraggingRef.current, target.x, target.z);
+          fpDraggingRef.current.mesh.position.x = sx;
+          fpDraggingRef.current.mesh.position.z = sz;
+          fpDraggingRef.current.mesh.position.y = 0.15;
+        }
+      }
     };
     const onMouseUp = (e: MouseEvent) => {
       if (e.button === 2) { mouseDown = false; el.style.cursor = 'crosshair'; return; }
       if (e.button !== 0) return;
-      // Ignore clicks that happened on UI elements (not on canvas)
-      if (e.target !== el) return;
 
-      // Carrying mode: left click = place object
-      if (fpCarryRef.current) {
-        fpCarryRef.current = null;
-        setFpCarrying(false);
-        setStatusMsg('Obiect plasat');
+      // Drop dragged object
+      if (fpDraggingRef.current) {
+        fpDraggingRef.current.mesh.position.y = 0; // set back on floor
+        setStatusMsg(`Plasat: ${fpDraggingRef.current.name}`);
+        fpDraggingRef.current = null;
+        setFpDragging(null);
+        el.style.cursor = 'crosshair';
+        leftDown = false;
         return;
       }
+      leftDown = false;
 
-      // Left click = interact (doors, objects in edit mode)
+      if (e.target !== el) return;
       if (!cameraRef.current) return;
       const rect = el.getBoundingClientRect();
       const mouse = new THREE.Vector2(
@@ -1076,7 +1160,7 @@ export default function SceneEditor() {
       );
       raycasterRef.current.setFromCamera(mouse, cameraRef.current);
 
-      // Check doors first
+      // Doors toggle
       const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
       const doorHits = raycasterRef.current.intersectObjects(doorMeshes, true);
       if (doorHits.length > 0) {
@@ -1092,7 +1176,7 @@ export default function SceneEditor() {
         }
       }
 
-      // In FP edit mode: click objects → show action popup
+      // Edit mode: right-click on object → popup
       if (fpEditRef.current) {
         const meshes = objectsRef.current.map(o => o.mesh);
         const objHits = raycasterRef.current.intersectObjects(meshes, true);
@@ -1105,14 +1189,11 @@ export default function SceneEditor() {
             selectedRef.current = found;
             setSelectedObj(found);
             highlightObject(found, true);
-            // Show action popup at click position
             setFpAction({ obj: found, x: e.clientX, y: e.clientY });
           }
         } else {
           if (selectedRef.current) highlightObject(selectedRef.current, false);
-          selectedRef.current = null;
-          setSelectedObj(null);
-          setFpAction(null);
+          selectedRef.current = null; setSelectedObj(null); setFpAction(null);
         }
       }
     };
@@ -1172,17 +1253,6 @@ export default function SceneEditor() {
         cam.position.z = nz;
       }
       cam.position.y = 1.7;
-
-      // Carry mode: object follows 2m in front of camera
-      if (fpCarryRef.current) {
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-        fwd.y = 0; fwd.normalize();
-        fpCarryRef.current.mesh.position.set(
-          cam.position.x + fwd.x * 2,
-          0,
-          cam.position.z + fwd.z * 2
-        );
-      }
     };
 
     return () => {
@@ -1341,13 +1411,13 @@ export default function SceneEditor() {
 
             {/* Bottom HUD */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center z-10 pointer-events-none">
-              {fpCarrying ? (
+              {fpDragging ? (
                 <div className="px-5 py-2.5 rounded-xl text-xs font-medium" style={{ background: 'rgba(0,113,227,0.85)', backdropFilter: 'blur(6px)', color: '#fff' }}>
-                  Muti obiect — mergi unde vrei apoi <span className="font-mono bg-white/20 px-1.5 py-0.5 rounded">Click stanga</span> = plaseaza &nbsp; <span className="font-mono bg-white/20 px-1.5 py-0.5 rounded">ESC</span> = anuleaza
+                  Muti: {fpDragging} — trage cu mouse-ul, elibereaza = plaseaza
                 </div>
               ) : (
                 <div className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,0.7)' }}>
-                  <span className="font-mono">WASD</span> mers &nbsp; <span className="font-mono">Shift</span> sprint &nbsp; <span className="font-mono">RMB+drag</span> rotire &nbsp; <span className="font-mono">LMB</span> usi{fpEditMode && ' / selectare'}
+                  <span className="font-mono">WASD</span> mers &nbsp; <span className="font-mono">Shift</span> sprint &nbsp; <span className="font-mono">RMB+drag</span> rotire &nbsp; <span className="font-mono">LMB</span> usi{fpEditMode && ' / drag obiecte'}
                 </div>
               )}
             </div>
@@ -1375,19 +1445,6 @@ export default function SceneEditor() {
                   </p>
                 </div>
                 <div className="py-1">
-                  <button
-                    onClick={() => {
-                      if (!fpAction) return;
-                      saveSnapshot();
-                      fpCarryRef.current = fpAction.obj;
-                      setFpCarrying(true);
-                      setFpAction(null);
-                      setStatusMsg(`Muta: ${fpAction.obj.name} — click stanga = plaseaza`);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <span style={{ fontSize: 14 }}>&#8644;</span> Muta
-                  </button>
                   <button
                     onClick={() => {
                       if (!fpAction) return;
