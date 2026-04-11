@@ -1,0 +1,2 @@
+timestamp	experiment	hypothesis	score	status
+2026-04-10T10:00:00	add-5-missing-features	Adding Multi-Select, Dark Mode, Area Calc, Floor Texture, Object Info Panel increases feature score from 17 to 20	93	KEEP
