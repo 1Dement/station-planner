@@ -750,56 +750,19 @@ export default function SceneEditor() {
     const el = rendererRef.current?.domElement;
     if (!el) return;
 
-    let pendingDragObj: PlacedObject | null = null;
-
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       if (fpModeRef.current) return;
       mouseDownPosRef.current.set(e.clientX, e.clientY);
-      pendingDragObj = null;
 
-      const rect = el.getBoundingClientRect();
-      mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
-
-      // Check if clicking DIRECTLY on an object (not through walls/ceiling)
-      const meshes = objectsRef.current.map(o => o.mesh);
-      const intersects = raycasterRef.current.intersectObjects(meshes, true);
-
-      if (intersects.length > 0) {
-        const hit = intersects[0];
-        // Ignore hits through walls — check if a wall (not floor/ceiling) is closer
-        const buildingGroup = sceneRef.current?.children.find(c => c.userData?.type === 'building');
-        if (buildingGroup) {
-          const wallHits = raycasterRef.current.intersectObject(buildingGroup, true)
-            .filter(h => {
-              // Only count vertical surfaces (walls), not floors/ceilings
-              // A wall face has a normal with significant X or Z component
-              if (!h.face) return false;
-              const normal = h.face.normal.clone();
-              h.object.getWorldQuaternion(new THREE.Quaternion()).normalize();
-              // Floor/ceiling normals point mostly Y, wall normals point mostly X or Z
-              return Math.abs(normal.y) < 0.5;
-            });
-          if (wallHits.length > 0 && wallHits[0].distance < hit.distance - 0.05) {
-            return; // Wall is in front of the object — click was through a wall
-          }
-        }
-
-        let clicked = hit.object as THREE.Object3D;
-        let obj = objectsRef.current.find(o => o.mesh === clicked);
-        while (!obj && clicked.parent) {
-          clicked = clicked.parent;
-          obj = objectsRef.current.find(o => o.mesh === clicked);
-        }
-        if (obj) {
-          pendingDragObj = obj;
-          const floorPoint = getFloorIntersection(e.clientX, e.clientY);
-          if (floorPoint) {
-            dragOffsetRef.current.set(obj.mesh.position.x - floorPoint.x, 0, obj.mesh.position.z - floorPoint.z);
-          }
+      // If there's a selected object, prepare drag offset for potential drag
+      if (selectedRef.current) {
+        const floorPoint = getFloorIntersection(e.clientX, e.clientY);
+        if (floorPoint) {
+          dragOffsetRef.current.set(
+            selectedRef.current.mesh.position.x - floorPoint.x, 0,
+            selectedRef.current.mesh.position.z - floorPoint.z
+          );
         }
       }
     };
@@ -807,22 +770,16 @@ export default function SceneEditor() {
     const handleMouseMove = (e: MouseEvent) => {
       if (fpModeRef.current) return;
 
-      // Start drag only after 8px threshold (prevents accidental drags)
-      if (pendingDragObj && !isDraggingRef.current) {
+      // Drag the SELECTED object after 8px threshold
+      if (selectedRef.current && !isDraggingRef.current && e.buttons === 1) {
         const dx = e.clientX - mouseDownPosRef.current.x;
         const dy = e.clientY - mouseDownPosRef.current.y;
         if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-          const obj = pendingDragObj;
-          if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
-          selectedRef.current = obj;
-          setSelectedObj(obj);
-          highlightObject(obj, true);
           saveSnapshot();
           isDraggingRef.current = true;
           if (orbitRef.current) orbitRef.current.enabled = false;
           el.style.cursor = 'grabbing';
-          setStatusMsg(`Drag: ${obj.name} | R=rotire`);
-          pendingDragObj = null;
+          setStatusMsg(`Drag: ${selectedRef.current.name} | R=rotire`);
         }
         return;
       }
@@ -867,19 +824,6 @@ export default function SceneEditor() {
 
     const handleMouseUp = (e: MouseEvent) => {
       if (fpModeRef.current) return;
-
-      // If we had a pending drag that never started — it's a click on the object (select it)
-      if (pendingDragObj && !isDraggingRef.current) {
-        const obj = pendingDragObj;
-        pendingDragObj = null;
-        if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
-        selectedRef.current = obj;
-        setSelectedObj(obj);
-        highlightObject(obj, true);
-        setStatusMsg(`Selectat: ${obj.name} | R=rotire 22.5° | Shift+R=15° | Del=sterge | D=duplica`);
-        return;
-      }
-      pendingDragObj = null;
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
@@ -928,11 +872,21 @@ export default function SceneEditor() {
         const meshes = objectsRef.current.map(o => o.mesh);
         const intersects = raycasterRef.current.intersectObjects(meshes, true);
 
-        if (intersects.length === 0) {
-          // Clicked on empty space - deselect
-          if (selectedRef.current) {
-            highlightObject(selectedRef.current, false);
+        if (intersects.length > 0) {
+          // Click on object = select it (drag on next mouseDown+move)
+          let clicked = intersects[0].object as THREE.Object3D;
+          let obj = objectsRef.current.find(o => o.mesh === clicked);
+          while (!obj && clicked.parent) { clicked = clicked.parent; obj = objectsRef.current.find(o => o.mesh === clicked); }
+          if (obj) {
+            if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
+            selectedRef.current = obj;
+            setSelectedObj(obj);
+            highlightObject(obj, true);
+            setStatusMsg(`${obj.name} | Drag=muta | R=rotire | Del=sterge | D=duplica`);
           }
+        } else {
+          // Clicked on empty space - deselect
+          if (selectedRef.current) highlightObject(selectedRef.current, false);
           selectedRef.current = null;
           setSelectedObj(null);
           setStatusMsg('Gata de lucru');
