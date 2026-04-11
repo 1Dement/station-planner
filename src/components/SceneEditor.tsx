@@ -52,8 +52,7 @@ export default function SceneEditor() {
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef(new THREE.Vector3());
   const mouseDownPosRef = useRef(new THREE.Vector2());
-  const isDraggingDoorRef = useRef(false);
-  const draggingDoorRef = useRef<{ pivot: THREE.Group; info: DoorPanel } | null>(null);
+  // Door toggle (click to open/close)
 
   const [selectedObj, setSelectedObj] = useState<PlacedObject | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('shelving');
@@ -326,6 +325,7 @@ export default function SceneEditor() {
           endAngle: dp.endAngle,
           hingeX: dp.hingeX,
           hingeZ: dp.hingeZ,
+          isOpen: false,
         };
 
         // Panel mesh (offset from pivot by half width)
@@ -519,6 +519,8 @@ export default function SceneEditor() {
 
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return; // Only left click
+      // In FP mode, mouse is for looking — skip all drag/select logic
+      if (fpMode) return;
       mouseDownPosRef.current.set(e.clientX, e.clientY);
 
       const rect = el.getBoundingClientRect();
@@ -526,28 +528,6 @@ export default function SceneEditor() {
       mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
-
-      // Check door panels first
-      const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
-      const doorIntersects = raycasterRef.current.intersectObjects(doorMeshes, true);
-      if (doorIntersects.length > 0) {
-        let clickedDoor = doorIntersects[0].object as THREE.Object3D;
-        let doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor || d.panel === clickedDoor);
-        while (!doorEntry && clickedDoor.parent) {
-          clickedDoor = clickedDoor.parent;
-          doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor);
-        }
-        if (doorEntry) {
-          isDraggingDoorRef.current = true;
-          draggingDoorRef.current = doorEntry;
-          if (orbitRef.current) orbitRef.current.enabled = false;
-          el.style.cursor = 'grabbing';
-          setStatusMsg(`Ușă: drag pentru deschidere/închidere`);
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-      }
 
       // Then check furniture objects
       const meshes = objectsRef.current.map(o => o.mesh);
@@ -592,25 +572,7 @@ export default function SceneEditor() {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Door panel drag — rotate on hinge
-      if (isDraggingDoorRef.current && draggingDoorRef.current) {
-        const floorPt = getFloorIntersection(e.clientX, e.clientY);
-        if (floorPt) {
-          const dp = draggingDoorRef.current;
-          // Angle from hinge to mouse position
-          const dx = floorPt.x - dp.info.hingeX;
-          const dz = floorPt.z - dp.info.hingeZ;
-          let angle = Math.atan2(dz, dx);
-
-          // Clamp between startAngle and endAngle
-          const sa = Math.min(dp.info.startAngle, dp.info.endAngle);
-          const ea = Math.max(dp.info.startAngle, dp.info.endAngle);
-          angle = Math.max(sa, Math.min(ea, angle));
-
-          dp.pivot.rotation.y = -angle;
-        }
-        return;
-      }
+      if (fpMode) return; // FP mode handles its own mouse
 
       if (!isDraggingRef.current || !selectedRef.current) {
         // Hover effect
@@ -661,15 +623,7 @@ export default function SceneEditor() {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      // Release door panel drag
-      if (isDraggingDoorRef.current) {
-        isDraggingDoorRef.current = false;
-        draggingDoorRef.current = null;
-        if (orbitRef.current) orbitRef.current.enabled = true;
-        el.style.cursor = 'default';
-        setStatusMsg('Ușă ajustată');
-        return;
-      }
+      if (fpMode) return; // FP mode handles its own mouse
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
@@ -694,6 +648,26 @@ export default function SceneEditor() {
         mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
         raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
+
+        // Check door click — toggle open/closed
+        const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
+        const doorHits = raycasterRef.current.intersectObjects(doorMeshes, true);
+        if (doorHits.length > 0) {
+          let clickedDoor = doorHits[0].object as THREE.Object3D;
+          let doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor || d.panel === clickedDoor);
+          while (!doorEntry && clickedDoor.parent) {
+            clickedDoor = clickedDoor.parent;
+            doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor);
+          }
+          if (doorEntry) {
+            const ud = doorEntry.pivot.userData;
+            ud.isOpen = !ud.isOpen;
+            doorEntry.pivot.rotation.y = ud.isOpen ? -ud.endAngle : -ud.startAngle;
+            setStatusMsg(ud.isOpen ? 'Ușă deschisă' : 'Ușă închisă');
+            return;
+          }
+        }
+
         const meshes = objectsRef.current.map(o => o.mesh);
         const intersects = raycasterRef.current.intersectObjects(meshes, true);
 
@@ -1001,11 +975,14 @@ export default function SceneEditor() {
     };
     const onKeyUp = (e: KeyboardEvent) => { fpKeysRef.current.delete(e.key.toLowerCase()); };
 
+    let clickStartX = 0, clickStartY = 0;
     const onMouseDown = (e: MouseEvent) => {
       if (e.button === 0 || e.button === 2) {
         mouseDown = true;
         lastMX = e.clientX;
         lastMY = e.clientY;
+        clickStartX = e.clientX;
+        clickStartY = e.clientY;
         el.style.cursor = 'grabbing';
       }
     };
@@ -1019,7 +996,34 @@ export default function SceneEditor() {
       fpPitchRef.current -= dy * 0.003;
       fpPitchRef.current = Math.max(-1.2, Math.min(1.2, fpPitchRef.current));
     };
-    const onMouseUp = () => { mouseDown = false; el.style.cursor = 'crosshair'; };
+    const onMouseUp = (e: MouseEvent) => {
+      mouseDown = false;
+      el.style.cursor = 'crosshair';
+      // Detect click (no drag) → toggle doors
+      const dx = e.clientX - clickStartX;
+      const dy = e.clientY - clickStartY;
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4 && cameraRef.current) {
+        const rect = el.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        raycasterRef.current.setFromCamera(mouse, cameraRef.current);
+        const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
+        const hits = raycasterRef.current.intersectObjects(doorMeshes, true);
+        if (hits.length > 0) {
+          let obj = hits[0].object as THREE.Object3D;
+          let entry = doorPanelsRef.current.find(d => d.pivot === obj || d.panel === obj);
+          while (!entry && obj.parent) { obj = obj.parent; entry = doorPanelsRef.current.find(d => d.pivot === obj); }
+          if (entry) {
+            const ud = entry.pivot.userData;
+            ud.isOpen = !ud.isOpen;
+            entry.pivot.rotation.y = ud.isOpen ? -ud.endAngle : -ud.startAngle;
+            setStatusMsg(ud.isOpen ? 'Ușă deschisă' : 'Ușă închisă');
+          }
+        }
+      }
+    };
     const onContextMenu = (e: Event) => { e.preventDefault(); };
 
     window.addEventListener('keydown', onKeyDown);
