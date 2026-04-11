@@ -53,6 +53,7 @@ export default function SceneEditor() {
   const dragOffsetRef = useRef(new THREE.Vector3());
   const mouseDownPosRef = useRef(new THREE.Vector2());
   // Door toggle (click to open/close)
+  const snapLinesRef = useRef<THREE.Group | null>(null);
 
   const [selectedObj, setSelectedObj] = useState<PlacedObject | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('shelving');
@@ -103,6 +104,131 @@ export default function SceneEditor() {
   useEffect(() => { fpEditRef.current = fpEditMode; }, [fpEditMode]);
 
   const snap = (v: number) => Math.round(v / GRID_SNAP) * GRID_SNAP;
+
+  const clearSnapLines = () => {
+    const g = snapLinesRef.current;
+    if (!g) return;
+    while (g.children.length) {
+      const c = g.children[0];
+      if (c instanceof THREE.Line) { c.geometry.dispose(); (c.material as THREE.Material).dispose(); }
+      if (c instanceof THREE.Sprite) { (c.material as THREE.SpriteMaterial).map?.dispose(); (c.material as THREE.SpriteMaterial).dispose(); }
+      g.remove(c);
+    }
+  };
+
+  const addSnapLine = (x1: number, z1: number, x2: number, z2: number) => {
+    const g = snapLinesRef.current;
+    if (!g) return;
+    const mat = new THREE.LineDashedMaterial({ color: 0x0071e3, dashSize: 0.08, gapSize: 0.05, linewidth: 1, transparent: true, opacity: 0.7 });
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x1, 0.03, z1),
+      new THREE.Vector3(x2, 0.03, z2),
+    ]);
+    const line = new THREE.Line(geo, mat);
+    line.computeLineDistances();
+    g.add(line);
+  };
+
+  const addSnapDistLabel = (x: number, z: number, dist: number) => {
+    const g = snapLinesRef.current;
+    if (!g || dist < 0.02) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 40;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = 'rgba(0,113,227,0.85)';
+    ctx.roundRect(0, 0, 128, 40, 6);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 18px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${(dist * 100).toFixed(0)} cm`, 64, 20);
+    const tex = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sprite.position.set(x, 0.4, z);
+    sprite.scale.set(0.6, 0.19, 1);
+    g.add(sprite);
+  };
+
+  // Snap with visual indicators - returns snapped position + draws lines
+  const snapWithIndicators = (obj: PlacedObject, rawX: number, rawZ: number): [number, number] => {
+    clearSnapLines();
+    let nx = rawX, nz = rawZ;
+    const tw = obj.dimensions.width / 2, td = obj.dimensions.depth / 2;
+    let snappedWall = false;
+
+    // Wall snap
+    if (wallSegmentsRef.current.length > 0) {
+      const r = snapToWall(nx, nz, obj.dimensions.depth, wallSegmentsRef.current, 0.6);
+      if (r.snapped) {
+        nx = r.x; nz = r.z; obj.mesh.rotation.y = r.rotation;
+        snappedWall = true;
+        // Draw wall snap line
+        const ws = wallSegmentsRef.current.find(w => {
+          const wx = w.x2 - w.x1, wz = w.z2 - w.z1;
+          const len2 = wx * wx + wz * wz;
+          if (len2 < 0.01) return false;
+          const t = Math.max(0, Math.min(1, ((nx - w.x1) * wx + (nz - w.z1) * wz) / len2));
+          const cx = w.x1 + t * wx, cz = w.z1 + t * wz;
+          return Math.sqrt((nx - cx) ** 2 + (nz - cz) ** 2) < 0.8;
+        });
+        if (ws) addSnapLine(ws.x1, ws.z1, ws.x2, ws.z2);
+      }
+    }
+
+    // Tetris snap to other objects
+    const SNAP_T = 0.12;
+    for (const other of objectsRef.current) {
+      if (other.id === obj.id) continue;
+      const ox = other.mesh.position.x, oz = other.mesh.position.z;
+      const ow = other.dimensions.width / 2, od = other.dimensions.depth / 2;
+
+      // Edge-to-edge X
+      if (Math.abs(nz - oz) < Math.max(od, td) + 0.3) {
+        if (Math.abs((nx + tw) - (ox - ow)) < SNAP_T) {
+          nx = ox - ow - tw;
+          addSnapLine(ox - ow, oz - od - 0.3, ox - ow, oz + od + 0.3);
+          addSnapDistLabel((nx + ox) / 2, (nz + oz) / 2, 0);
+        }
+        if (Math.abs((nx - tw) - (ox + ow)) < SNAP_T) {
+          nx = ox + ow + tw;
+          addSnapLine(ox + ow, oz - od - 0.3, ox + ow, oz + od + 0.3);
+        }
+      }
+      // Edge-to-edge Z
+      if (Math.abs(nx - ox) < Math.max(ow, tw) + 0.3) {
+        if (Math.abs((nz + td) - (oz - od)) < SNAP_T) {
+          nz = oz - od - td;
+          addSnapLine(ox - ow - 0.3, oz - od, ox + ow + 0.3, oz - od);
+        }
+        if (Math.abs((nz - td) - (oz + od)) < SNAP_T) {
+          nz = oz + od + td;
+          addSnapLine(ox - ow - 0.3, oz + od, ox + ow + 0.3, oz + od);
+        }
+      }
+      // Align same row/column
+      if (Math.abs(nz - oz) < SNAP_T && Math.abs(nx - ox) < ow + tw + 0.5) {
+        nz = oz;
+        addSnapLine(Math.min(nx - tw, ox - ow) - 0.3, oz, Math.max(nx + tw, ox + ow) + 0.3, oz);
+      }
+      if (Math.abs(nx - ox) < SNAP_T && Math.abs(nz - oz) < od + td + 0.5) {
+        nx = ox;
+        addSnapLine(ox, Math.min(nz - td, oz - od) - 0.3, ox, Math.max(nz + td, oz + od) + 0.3);
+      }
+    }
+
+    // Grid snap as fallback (only if no wall/tetris snap)
+    if (!snappedWall) {
+      const G = 0.10;
+      const gridX = Math.round(nx / G) * G;
+      const gridZ = Math.round(nz / G) * G;
+      // Only apply grid if no tetris snapped (check if we moved from raw)
+      if (Math.abs(nx - rawX) < 0.01) nx = gridX;
+      if (Math.abs(nz - rawZ) < 0.01) nz = gridZ;
+    }
+
+    return [nx, nz];
+  };
 
   const saveSnapshot = () => {
     const snapshot = objectsRef.current.map(o => ({
@@ -313,6 +439,12 @@ export default function SceneEditor() {
     const gridHelper = new THREE.GridHelper(40, 40, 0xc0c0c0, 0xd4d4d4);
     gridHelper.position.y = 0.005;
     scene.add(gridHelper);
+
+    // Snap indicator lines group
+    const snapGroup = new THREE.Group();
+    snapGroup.userData = { type: 'snapLines' };
+    scene.add(snapGroup);
+    snapLinesRef.current = snapGroup;
 
     // Place furniture objects from DXF
     if (buildingResult.dxfObjects && buildingResult.dxfObjects.length > 0) {
@@ -610,54 +742,21 @@ export default function SceneEditor() {
       const floorPoint = getFloorIntersection(e.clientX, e.clientY);
       if (floorPoint && selectedRef.current) {
         const obj = selectedRef.current;
-        const G = 0.10;
-        let newX = Math.round((floorPoint.x + dragOffsetRef.current.x) / G) * G;
-        let newZ = Math.round((floorPoint.z + dragOffsetRef.current.z) / G) * G;
+        const rawX = floorPoint.x + dragOffsetRef.current.x;
+        const rawZ = floorPoint.z + dragOffsetRef.current.z;
 
         // Auto-boundary: clamp to building exterior
         const bounds = buildingBoundsRef.current;
+        let bx = rawX, bz = rawZ;
         if (bounds) {
-          const objHalfW = obj.dimensions.width / 2;
-          const objHalfD = obj.dimensions.depth / 2;
-          newX = Math.max(bounds.minX + objHalfW, Math.min(bounds.maxX - objHalfW, newX));
-          newZ = Math.max(bounds.minZ + objHalfD, Math.min(bounds.maxZ - objHalfD, newZ));
+          const hw = obj.dimensions.width / 2, hd = obj.dimensions.depth / 2;
+          bx = Math.max(bounds.minX + hw, Math.min(bounds.maxX - hw, bx));
+          bz = Math.max(bounds.minZ + hd, Math.min(bounds.maxZ - hd, bz));
         }
 
-        // Wall snap for all objects near walls
-        if (wallSegmentsRef.current.length > 0) {
-          const result = snapToWall(newX, newZ, obj.dimensions.depth, wallSegmentsRef.current, 0.6);
-          if (result.snapped) {
-            newX = result.x;
-            newZ = result.z;
-            obj.mesh.rotation.y = result.rotation;
-          }
-        }
-
-        // Tetris snap: align edges with nearby objects
-        const SNAP_DIST = 0.15;
-        for (const other of objectsRef.current) {
-          if (other.id === obj.id) continue;
-          const ox = other.mesh.position.x, oz = other.mesh.position.z;
-          const ow = other.dimensions.width / 2, od = other.dimensions.depth / 2;
-          const tw = obj.dimensions.width / 2, td = obj.dimensions.depth / 2;
-
-          // Snap X edges (left-to-right, right-to-left)
-          if (Math.abs(newZ - oz) < Math.max(od, td) + 0.3) {
-            if (Math.abs((newX + tw) - (ox - ow)) < SNAP_DIST) newX = ox - ow - tw;
-            if (Math.abs((newX - tw) - (ox + ow)) < SNAP_DIST) newX = ox + ow + tw;
-          }
-          // Snap Z edges
-          if (Math.abs(newX - ox) < Math.max(ow, tw) + 0.3) {
-            if (Math.abs((newZ + td) - (oz - od)) < SNAP_DIST) newZ = oz - od - td;
-            if (Math.abs((newZ - td) - (oz + od)) < SNAP_DIST) newZ = oz + od + td;
-          }
-          // Align same axis (objects side by side → same Z or same X)
-          if (Math.abs(newZ - oz) < SNAP_DIST && Math.abs(newX - ox) < ow + tw + 0.5) newZ = oz;
-          if (Math.abs(newX - ox) < SNAP_DIST && Math.abs(newZ - oz) < od + td + 0.5) newX = ox;
-        }
-
-        obj.mesh.position.x = newX;
-        obj.mesh.position.z = newZ;
+        const [nx, nz] = snapWithIndicators(obj, bx, bz);
+        obj.mesh.position.x = nx;
+        obj.mesh.position.z = nz;
         obj.mesh.position.y = 0;
         checkAllCollisions();
         setSelectedObj({ ...obj });
@@ -669,6 +768,7 @@ export default function SceneEditor() {
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
+        clearSnapLines();
         if (orbitRef.current) orbitRef.current.enabled = true;
         el.style.cursor = selectedRef.current ? 'grab' : 'default';
         if (selectedRef.current) {
@@ -1046,38 +1146,6 @@ export default function SceneEditor() {
     };
     const onKeyUp = (e: KeyboardEvent) => { fpKeysRef.current.delete(e.key.toLowerCase()); };
 
-    // Snap helper for FP drag — grid 10cm + walls + tetris
-    const GRID = 0.10;
-    const SNAP_T = 0.12;
-    const snapObj = (obj: PlacedObject, x: number, z: number): [number, number] => {
-      // Grid snap first
-      let nx = Math.round(x / GRID) * GRID;
-      let nz = Math.round(z / GRID) * GRID;
-      // Wall snap (overrides grid if close)
-      if (wallSegmentsRef.current.length > 0) {
-        const r = snapToWall(nx, nz, obj.dimensions.depth, wallSegmentsRef.current, 0.5);
-        if (r.snapped) { nx = r.x; nz = r.z; obj.mesh.rotation.y = r.rotation; }
-      }
-      // Tetris snap to other objects (overrides grid if close)
-      const tw = obj.dimensions.width / 2, td = obj.dimensions.depth / 2;
-      for (const other of objectsRef.current) {
-        if (other.id === obj.id) continue;
-        const ox = other.mesh.position.x, oz = other.mesh.position.z;
-        const ow = other.dimensions.width / 2, od = other.dimensions.depth / 2;
-        if (Math.abs(nz - oz) < Math.max(od, td) + 0.3) {
-          if (Math.abs((nx + tw) - (ox - ow)) < SNAP_T) nx = ox - ow - tw;
-          if (Math.abs((nx - tw) - (ox + ow)) < SNAP_T) nx = ox + ow + tw;
-        }
-        if (Math.abs(nx - ox) < Math.max(ow, tw) + 0.3) {
-          if (Math.abs((nz + td) - (oz - od)) < SNAP_T) nz = oz - od - td;
-          if (Math.abs((nz - td) - (oz + od)) < SNAP_T) nz = oz + od + td;
-        }
-        if (Math.abs(nz - oz) < SNAP_T && Math.abs(nx - ox) < ow + tw + 0.5) nz = oz;
-        if (Math.abs(nx - ox) < SNAP_T && Math.abs(nz - oz) < od + td + 0.5) nx = ox;
-      }
-      return [nx, nz];
-    };
-
     // Right-click drag = look, Left-click = interact/drag objects
     let leftDown = false;
     const onMouseDown = (e: MouseEvent) => {
@@ -1129,7 +1197,7 @@ export default function SceneEditor() {
         fpPitchRef.current = Math.max(-1.2, Math.min(1.2, fpPitchRef.current));
         return;
       }
-      // Left-drag: move picked object on floor plane
+      // Left-drag: move picked object on floor plane with snap indicators
       if (leftDown && fpDraggingRef.current && cameraRef.current) {
         const rect = el.getBoundingClientRect();
         const mouse = new THREE.Vector2(
@@ -1139,7 +1207,7 @@ export default function SceneEditor() {
         raycasterRef.current.setFromCamera(mouse, cameraRef.current);
         const target = new THREE.Vector3();
         if (raycasterRef.current.ray.intersectPlane(floorPlaneRef.current, target)) {
-          const [sx, sz] = snapObj(fpDraggingRef.current, target.x, target.z);
+          const [sx, sz] = snapWithIndicators(fpDraggingRef.current, target.x, target.z);
           fpDraggingRef.current.mesh.position.x = sx;
           fpDraggingRef.current.mesh.position.z = sz;
           fpDraggingRef.current.mesh.position.y = 0.15;
@@ -1152,7 +1220,8 @@ export default function SceneEditor() {
 
       // Drop dragged object
       if (fpDraggingRef.current) {
-        fpDraggingRef.current.mesh.position.y = 0; // set back on floor
+        fpDraggingRef.current.mesh.position.y = 0;
+        clearSnapLines();
         setStatusMsg(`Plasat: ${fpDraggingRef.current.name}`);
         fpDraggingRef.current = null;
         setFpDragging(null);

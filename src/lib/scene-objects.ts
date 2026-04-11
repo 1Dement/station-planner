@@ -31,11 +31,65 @@ const textureCanvas = (text: string, bgColor: string): THREE.CanvasTexture => {
   return new THREE.CanvasTexture(canvas);
 };
 
+// GLB model cache to avoid reloading
+const glbCache = new Map<string, THREE.Object3D>();
+
 export function createObjectMesh(item: CatalogItem): THREE.Object3D {
+  // Check if we have a cached GLB clone
+  if (item.glb && glbCache.has(item.glb)) {
+    const clone = glbCache.get(item.glb)!.clone();
+    clone.userData = { catalogId: item.id, type: 'placeable' };
+    return clone;
+  }
+
   const group = createProceduralModel(item);
   group.userData = { catalogId: item.id, type: 'placeable' };
   group.castShadow = true;
   return group;
+}
+
+// Async loader for GLB — call once at startup to preload
+export async function preloadGLBModels(items: CatalogItem[]): Promise<void> {
+  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  const loader = new GLTFLoader();
+
+  const glbItems = items.filter(i => i.glb);
+  await Promise.all(glbItems.map(item => {
+    if (!item.glb) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      loader.load(
+        `/models/${item.glb}`,
+        (gltf) => {
+          const model = gltf.scene;
+          model.traverse(child => {
+            if (child instanceof THREE.Mesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+          // Scale to match catalog dimensions
+          const box = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const scale = Math.min(item.width / size.x, item.height / size.y, item.depth / size.z);
+          model.scale.multiplyScalar(scale);
+          // Center on XZ, align bottom to Y=0
+          const box2 = new THREE.Box3().setFromObject(model);
+          model.position.y -= box2.min.y;
+          model.position.x -= (box2.min.x + box2.max.x) / 2;
+          model.position.z -= (box2.min.z + box2.max.z) / 2;
+
+          const wrapper = new THREE.Group();
+          wrapper.add(model);
+          wrapper.userData = { catalogId: item.id, type: 'placeable' };
+          glbCache.set(item.glb!, wrapper);
+          resolve();
+        },
+        undefined,
+        () => resolve() // silently fall back to procedural on error
+      );
+    });
+  }));
 }
 
 export function createOutline(obj: THREE.Object3D, item: CatalogItem): THREE.LineSegments {
@@ -43,7 +97,7 @@ export function createOutline(obj: THREE.Object3D, item: CatalogItem): THREE.Lin
   const boxGeo = new THREE.BoxGeometry(item.width, item.height, item.depth);
   const edges = new THREE.EdgesGeometry(boxGeo);
   const lineMaterial = new THREE.LineBasicMaterial({
-    color: 0x4ecca3,
+    color: 0x0071e3,
     linewidth: 2,
     transparent: true,
     opacity: 0.8,
@@ -60,8 +114,8 @@ export function createLabel(name: string, height: number): THREE.Sprite {
   canvas.height = 128;
   const ctx = canvas.getContext('2d')!;
 
-  ctx.fillStyle = 'rgba(22, 33, 62, 0.85)';
-  const radius = 12;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  const radius = 16;
   ctx.beginPath();
   ctx.moveTo(radius, 0);
   ctx.lineTo(512 - radius, 0);
@@ -74,11 +128,11 @@ export function createLabel(name: string, height: number): THREE.Sprite {
   ctx.quadraticCurveTo(0, 0, radius, 0);
   ctx.fill();
 
-  ctx.strokeStyle = '#4ecca3';
+  ctx.strokeStyle = '#0071e3';
   ctx.lineWidth = 3;
   ctx.stroke();
 
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#1d1d1f';
   ctx.font = 'bold 32px Segoe UI, Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -122,7 +176,7 @@ export function highlightObject(obj: PlacedObject, selected: boolean) {
   // Set emissive on all child meshes
   obj.mesh.traverse((child) => {
     if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-      child.material.emissive.set(selected ? 0x4ecca3 : 0x000000);
+      child.material.emissive.set(selected ? 0x0071e3 : 0x000000);
       child.material.emissiveIntensity = selected ? 0.15 : 0;
     }
   });

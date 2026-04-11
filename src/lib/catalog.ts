@@ -9,6 +9,7 @@ export interface CatalogItem {
   clearance: number;
   description: string;
   icon: string;
+  glb?: string;    // optional GLB model path in /public/models/
 }
 
 export const CATEGORIES = [
