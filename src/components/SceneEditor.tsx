@@ -1012,14 +1012,12 @@ export default function SceneEditor() {
     };
     const onKeyUp = (e: KeyboardEvent) => { fpKeysRef.current.delete(e.key.toLowerCase()); };
 
-    let clickStartX = 0, clickStartY = 0;
+    // Right-click drag = look around, Left-click = interact
     const onMouseDown = (e: MouseEvent) => {
-      if (e.button === 0 || e.button === 2) {
+      if (e.button === 2) { // Right click only for look
         mouseDown = true;
         lastMX = e.clientX;
         lastMY = e.clientY;
-        clickStartX = e.clientX;
-        clickStartY = e.clientY;
         el.style.cursor = 'grabbing';
       }
     };
@@ -1034,55 +1032,52 @@ export default function SceneEditor() {
       fpPitchRef.current = Math.max(-1.2, Math.min(1.2, fpPitchRef.current));
     };
     const onMouseUp = (e: MouseEvent) => {
-      mouseDown = false;
-      el.style.cursor = 'crosshair';
-      // Detect click (no drag) → toggle doors or select objects in edit mode
-      const dx = e.clientX - clickStartX;
-      const dy = e.clientY - clickStartY;
-      if (Math.abs(dx) < 4 && Math.abs(dy) < 4 && cameraRef.current) {
-        const rect = el.getBoundingClientRect();
-        const mouse = new THREE.Vector2(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          -((e.clientY - rect.top) / rect.height) * 2 + 1
-        );
-        raycasterRef.current.setFromCamera(mouse, cameraRef.current);
+      if (e.button === 2) { mouseDown = false; el.style.cursor = 'crosshair'; return; }
+      if (e.button !== 0) return;
+      // Left click = interact (doors, objects in edit mode)
+      if (!cameraRef.current) return;
+      const rect = el.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycasterRef.current.setFromCamera(mouse, cameraRef.current);
 
-        // Check doors first
-        const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
-        const doorHits = raycasterRef.current.intersectObjects(doorMeshes, true);
-        if (doorHits.length > 0) {
-          let obj = doorHits[0].object as THREE.Object3D;
-          let entry = doorPanelsRef.current.find(d => d.pivot === obj || d.panel === obj);
-          while (!entry && obj.parent) { obj = obj.parent; entry = doorPanelsRef.current.find(d => d.pivot === obj); }
-          if (entry) {
-            const ud = entry.pivot.userData;
-            ud.isOpen = !ud.isOpen;
-            entry.pivot.rotation.y = ud.isOpen ? -ud.endAngle : -ud.startAngle;
-            setStatusMsg(ud.isOpen ? 'Ușă deschisă' : 'Ușă închisă');
-            return;
-          }
+      // Check doors first
+      const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
+      const doorHits = raycasterRef.current.intersectObjects(doorMeshes, true);
+      if (doorHits.length > 0) {
+        let obj = doorHits[0].object as THREE.Object3D;
+        let entry = doorPanelsRef.current.find(d => d.pivot === obj || d.panel === obj);
+        while (!entry && obj.parent) { obj = obj.parent; entry = doorPanelsRef.current.find(d => d.pivot === obj); }
+        if (entry) {
+          const ud = entry.pivot.userData;
+          ud.isOpen = !ud.isOpen;
+          entry.pivot.rotation.y = ud.isOpen ? -ud.endAngle : -ud.startAngle;
+          setStatusMsg(ud.isOpen ? 'Usa deschisa' : 'Usa inchisa');
+          return;
         }
+      }
 
-        // In FP edit mode: click objects to select/deselect
-        if (fpEditMode) {
-          const meshes = objectsRef.current.map(o => o.mesh);
-          const objHits = raycasterRef.current.intersectObjects(meshes, true);
-          if (objHits.length > 0) {
-            let clicked = objHits[0].object as THREE.Object3D;
-            let found = objectsRef.current.find(o => o.mesh === clicked);
-            while (!found && clicked.parent) { clicked = clicked.parent; found = objectsRef.current.find(o => o.mesh === clicked); }
-            if (found) {
-              if (selectedRef.current) highlightObject(selectedRef.current, false);
-              selectedRef.current = found;
-              setSelectedObj(found);
-              highlightObject(found, true);
-              setStatusMsg(`Selectat: ${found.name} | R=rotire | Del=sterge`);
-            }
-          } else {
+      // In FP edit mode: click objects to select/deselect
+      if (fpEditMode) {
+        const meshes = objectsRef.current.map(o => o.mesh);
+        const objHits = raycasterRef.current.intersectObjects(meshes, true);
+        if (objHits.length > 0) {
+          let clicked = objHits[0].object as THREE.Object3D;
+          let found = objectsRef.current.find(o => o.mesh === clicked);
+          while (!found && clicked.parent) { clicked = clicked.parent; found = objectsRef.current.find(o => o.mesh === clicked); }
+          if (found) {
             if (selectedRef.current) highlightObject(selectedRef.current, false);
-            selectedRef.current = null;
-            setSelectedObj(null);
+            selectedRef.current = found;
+            setSelectedObj(found);
+            highlightObject(found, true);
+            setStatusMsg(`Selectat: ${found.name} | R=rotire | Del=sterge`);
           }
+        } else {
+          if (selectedRef.current) highlightObject(selectedRef.current, false);
+          selectedRef.current = null;
+          setSelectedObj(null);
         }
       }
     };
@@ -1282,111 +1277,88 @@ export default function SceneEditor() {
       <div className="flex-1 relative">
         <div ref={canvasRef} className="w-full h-full" />
 
-        <button
-          onClick={() => setShowCatalog(!showCatalog)}
-          className="absolute top-3 left-3 w-8 h-8 rounded flex items-center justify-center text-sm z-10"
-          style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
-          title={showCatalog ? 'Ascunde catalog' : 'Arata catalog'}
-        >
-          {showCatalog ? '◀' : '▶'}
-        </button>
+        {/* Crosshair in walk mode */}
+        {fpMode && (
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
+            <div style={{ width: 20, height: 20 }}>
+              <div style={{ position: 'absolute', left: 9, top: 2, width: 2, height: 6, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+              <div style={{ position: 'absolute', left: 9, top: 12, width: 2, height: 6, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+              <div style={{ position: 'absolute', left: 2, top: 9, width: 6, height: 2, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+              <div style={{ position: 'absolute', left: 12, top: 9, width: 6, height: 2, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+            </div>
+          </div>
+        )}
 
-        {/* Top toolbar */}
-        <div
-          className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg z-10"
-          style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
-        >
+        {!fpMode && (
           <button
-            onClick={() => rotateSelected(-45)}
-            className="text-xs px-3 py-1.5 rounded font-semibold transition-colors hover:opacity-80"
-            style={{ background: 'var(--panel-border)' }}
-            title="Roteste -45°"
+            onClick={() => setShowCatalog(!showCatalog)}
+            className="absolute top-3 left-3 w-8 h-8 rounded flex items-center justify-center text-sm z-10"
+            style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
           >
-            ↶ -45°
+            {showCatalog ? '\u25C0' : '\u25B6'}
           </button>
-          <button
-            onClick={() => rotateSelected(45)}
-            className="text-xs px-3 py-1.5 rounded font-semibold transition-colors hover:opacity-80"
-            style={{ background: 'var(--panel-border)' }}
-            title="Roteste +45°"
-          >
-            ↷ +45°
-          </button>
-          <button
-            onClick={() => rotateSelected(90)}
-            className="text-xs px-3 py-1.5 rounded font-semibold transition-colors hover:opacity-80"
-            style={{ background: 'var(--panel-border)' }}
-            title="Roteste 90°"
-          >
-            ↻ 90°
-          </button>
-          <div className="w-px h-5 mx-1" style={{ background: 'var(--panel-border)' }} />
-          <button
-            onClick={duplicateSelected}
-            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
-            style={{ background: 'var(--panel-border)' }}
-            title="Duplica (D)"
-          >
-            ⧉ Duplica
-          </button>
-          <button
-            onClick={deleteSelected}
-            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
-            style={{ background: '#e9456033', color: 'var(--accent)' }}
-            title="Sterge (Del)"
-          >
-            Sterge
-          </button>
-          <div className="w-px h-5 mx-1" style={{ background: 'var(--panel-border)' }} />
-          <button onClick={resetCamera} className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80" style={{ background: 'var(--panel-border)' }} title="Reset camera">
-            3D
-          </button>
-          <button onClick={topView} className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80" style={{ background: 'var(--panel-border)' }} title="Vedere de sus">
-            2D
-          </button>
-          <div className="w-px h-5 mx-1" style={{ background: 'var(--panel-border)' }} />
-          <button
-            onClick={() => {
-              const next = !showCeiling;
-              setShowCeiling(next);
-              if (ceilingRef.current) ceilingRef.current.visible = next;
-            }}
-            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
-            style={{ background: showCeiling ? 'var(--accent)' : 'var(--panel-border)', color: showCeiling ? '#fff' : 'var(--foreground)' }}
-            title="Tavan on/off"
-          >
-            Tavan
-          </button>
-          <button
-            onClick={fpMode ? exitFpMode : enterFpMode}
-            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
-            style={{ background: fpMode ? 'var(--accent)' : 'var(--panel-border)', color: fpMode ? '#fff' : 'var(--foreground)' }}
-            title="Walkthrough (WASD + mouse)"
-          >
-            Walk
-          </button>
-          {fpMode && (
-            <button
-              onClick={() => { setFpEditMode(!fpEditMode); setShowCatalog(!fpEditMode); }}
-              className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
-              style={{ background: fpEditMode ? '#f59e0b' : 'var(--panel-border)', color: fpEditMode ? '#fff' : 'var(--foreground)' }}
-              title="Editare obiecte in Walk mode"
-            >
-              Edit
-            </button>
-          )}
-          <button
-            onClick={() => { if (measureMode) { clearMeasure(); } setMeasureMode(!measureMode); }}
-            className="text-xs px-2 py-1.5 rounded transition-colors hover:opacity-80"
-            style={{ background: measureMode ? '#dc2626' : 'var(--panel-border)', color: measureMode ? '#fff' : 'var(--foreground)' }}
-            title="Masurare distanta"
-          >
-            Masura
-          </button>
-        </div>
+        )}
 
-        {/* Selected object info */}
-        {selectedObj && (
+        {/* ORBIT MODE toolbar */}
+        {!fpMode && (
+          <div
+            className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg z-10"
+            style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
+          >
+            <button onClick={() => rotateSelected(-45)} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>-45°</button>
+            <button onClick={() => rotateSelected(45)} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>+45°</button>
+            <button onClick={() => rotateSelected(90)} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>90°</button>
+            <div className="w-px h-4" style={{ background: 'var(--panel-border)' }} />
+            <button onClick={duplicateSelected} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>Duplica</button>
+            <button onClick={deleteSelected} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: '#e9456033', color: 'var(--accent)' }}>Sterge</button>
+            <div className="w-px h-4" style={{ background: 'var(--panel-border)' }} />
+            <button onClick={resetCamera} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>3D</button>
+            <button onClick={topView} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: 'var(--panel-border)' }}>2D</button>
+            <button onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: showCeiling ? 'var(--accent)' : 'var(--panel-border)', color: showCeiling ? '#fff' : 'inherit' }}>Tavan</button>
+            <button onClick={enterFpMode} className="text-xs px-2 py-1 rounded hover:opacity-80 font-semibold" style={{ background: '#2563eb', color: '#fff' }}>Walk</button>
+            <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-xs px-2 py-1 rounded hover:opacity-80" style={{ background: measureMode ? '#dc2626' : 'var(--panel-border)', color: measureMode ? '#fff' : 'inherit' }}>Masura</button>
+          </div>
+        )}
+
+        {/* WALK MODE HUD */}
+        {fpMode && (
+          <>
+            {/* Top bar — compact */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full z-10" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+              <button onClick={exitFpMode} className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: '#ef4444', color: '#fff' }}>ESC Iesire</button>
+              <button
+                onClick={() => { setFpEditMode(!fpEditMode); setShowCatalog(!fpEditMode); }}
+                className="text-xs px-3 py-1 rounded-full font-semibold"
+                style={{ background: fpEditMode ? '#f59e0b' : '#3b82f6', color: '#fff' }}
+              >
+                {fpEditMode ? 'Editare ON' : 'Editare'}
+              </button>
+              <button onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }} className="text-xs px-3 py-1 rounded-full" style={{ background: showCeiling ? '#6b7280' : 'rgba(255,255,255,0.15)', color: '#fff' }}>Tavan</button>
+            </div>
+
+            {/* Bottom HUD */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center z-10 pointer-events-none">
+              <div className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,0.8)' }}>
+                <span className="font-mono">WASD</span> mers &nbsp; <span className="font-mono">Shift</span> sprint &nbsp; <span className="font-mono">Click dreapta+drag</span> rotire &nbsp; <span className="font-mono">Click stanga</span> usi{fpEditMode && ' / selectare'}
+              </div>
+            </div>
+
+            {/* FP Edit — selected object actions */}
+            {fpEditMode && selectedObj && (
+              <div className="absolute top-14 right-3 p-3 rounded-lg z-10" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+                <h3 className="text-xs font-bold text-white mb-2">{selectedObj.name}</h3>
+                <div className="flex gap-1.5">
+                  <button onClick={() => rotateSelected(45)} className="text-xs px-2 py-1 rounded bg-blue-600 text-white">R 45°</button>
+                  <button onClick={() => rotateSelected(90)} className="text-xs px-2 py-1 rounded bg-blue-600 text-white">R 90°</button>
+                  <button onClick={deleteSelected} className="text-xs px-2 py-1 rounded bg-red-600 text-white">Sterge</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Selected object info (orbit mode only) */}
+        {!fpMode && selectedObj && (
           <div
             className="absolute top-14 right-3 w-56 p-3 rounded-lg z-10"
             style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)' }}
@@ -1399,7 +1371,6 @@ export default function SceneEditor() {
               <p>Pozitie X: {selectedObj.mesh.position.x.toFixed(2)}m</p>
               <p>Pozitie Z: {selectedObj.mesh.position.z.toFixed(2)}m</p>
               <p>Rotatie: {(selectedObj.mesh.rotation.y * 180 / Math.PI).toFixed(1)}°</p>
-              <p>Clearance minim: {(selectedObj.clearance * 100).toFixed(0)} cm</p>
             </div>
             {objectsRef.current.length > 1 && (
               <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--panel-border)' }}>
@@ -1410,11 +1381,8 @@ export default function SceneEditor() {
                   .sort((a, b) => a.dist - b.dist)
                   .slice(0, 4)
                   .map((d, i) => (
-                    <p key={i} className="text-[10px]" style={{
-                      color: d.dist < selectedObj.clearance ? 'var(--accent)' : 'var(--success)'
-                    }}>
-                      → {d.name}: {(d.dist * 100).toFixed(0)} cm
-                      {d.dist < selectedObj.clearance && ' ⚠'}
+                    <p key={i} className="text-[10px]" style={{ color: d.dist < selectedObj.clearance ? 'var(--accent)' : 'var(--success)' }}>
+                      {d.name}: {(d.dist * 100).toFixed(0)}cm{d.dist < selectedObj.clearance && ' !'}
                     </p>
                   ))}
               </div>
@@ -1423,35 +1391,23 @@ export default function SceneEditor() {
         )}
 
         {/* Collision warnings */}
-        {collisions.length > 0 && (
-          <div
-            className="absolute bottom-16 right-3 w-56 p-3 rounded-lg z-10 max-h-48 overflow-y-auto"
-            style={{ background: '#e9456022', border: '1px solid var(--accent)' }}
-          >
-            <h3 className="text-xs font-bold mb-1" style={{ color: 'var(--accent)' }}>
-              Coliziuni ({collisions.length})
-            </h3>
-            {collisions.slice(0, 8).map((c, i) => (
-              <p key={i} className="text-[10px] opacity-80">{c}</p>
-            ))}
-            {collisions.length > 8 && (
-              <p className="text-[10px] opacity-50">...si inca {collisions.length - 8}</p>
-            )}
+        {!fpMode && collisions.length > 0 && (
+          <div className="absolute bottom-16 right-3 w-56 p-3 rounded-lg z-10 max-h-48 overflow-y-auto" style={{ background: '#e9456022', border: '1px solid var(--accent)' }}>
+            <h3 className="text-xs font-bold mb-1" style={{ color: 'var(--accent)' }}>Coliziuni ({collisions.length})</h3>
+            {collisions.slice(0, 6).map((c, i) => (<p key={i} className="text-[10px] opacity-80">{c}</p>))}
           </div>
         )}
 
         {/* Bottom status bar */}
-        <div
-          className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-2 text-xs z-10"
-          style={{ background: 'var(--panel-bg)', borderTop: '1px solid var(--panel-border)' }}
-        >
-          <span>{statusMsg}</span>
-          <div className="flex items-center gap-4 opacity-60">
-            <span>Obiecte: {objectCount}</span>
-            <span>Grid: {GRID_SNAP * 100}cm</span>
-            <span className="hidden sm:inline">Drag=Muta | R=Roteste | D=Duplica | Del=Sterge | Click dreapta=Orbit</span>
+        {!fpMode && (
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-2 text-xs z-10" style={{ background: 'var(--panel-bg)', borderTop: '1px solid var(--panel-border)' }}>
+            <span>{statusMsg}</span>
+            <div className="flex items-center gap-4 opacity-60">
+              <span>Obiecte: {objectCount}</span>
+              <span className="hidden sm:inline">Drag=Muta | R=Roteste | D=Duplica | Del=Sterge | Ctrl+Z=Undo</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
