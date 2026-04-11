@@ -440,6 +440,88 @@ export default function SceneEditor() {
     gridHelper.position.y = 0.005;
     scene.add(gridHelper);
 
+    // Exterior environment
+    // Ground plane (asphalt/parking)
+    const extGroundGeo = new THREE.PlaneGeometry(80, 80);
+    const extGroundMat = new THREE.MeshStandardMaterial({ color: 0x6b6b6b, roughness: 0.9, metalness: 0.05 });
+    const extGround = new THREE.Mesh(extGroundGeo, extGroundMat);
+    extGround.rotation.x = -Math.PI / 2;
+    extGround.position.y = -0.02;
+    extGround.receiveShadow = true;
+    scene.add(extGround);
+
+    // Grass patches around parking
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x5a8f3c, roughness: 0.95, metalness: 0 });
+    for (const [gx, gz, gw, gd] of [[-25, 0, 12, 60], [25, 0, 12, 60], [0, -25, 60, 12], [0, 25, 60, 12]] as [number, number, number, number][]) {
+      const grass = new THREE.Mesh(new THREE.PlaneGeometry(gw, gd), grassMat);
+      grass.rotation.x = -Math.PI / 2;
+      grass.position.set(gx, -0.015, gz);
+      grass.receiveShadow = true;
+      scene.add(grass);
+    }
+
+    // Parking lines
+    const linesMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+    const bz = buildingResult.exteriorBounds.minZ - 3;
+    for (let i = 0; i < 6; i++) {
+      const line = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 4.5), linesMat);
+      line.rotation.x = -Math.PI / 2;
+      line.position.set(-6 + i * 2.5, -0.01, bz - 3);
+      scene.add(line);
+    }
+
+    // Simple trees (cylinder trunk + sphere canopy)
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.8 });
+    const canopyMat = new THREE.MeshStandardMaterial({ color: 0x3d7a2a, roughness: 0.9 });
+    for (const [tx, tz] of [[-18, -12], [-18, 0], [-18, 10], [18, -12], [18, 0], [18, 10], [-8, 22], [0, 22], [8, 22]] as [number, number][]) {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 2.5, 8), trunkMat);
+      trunk.position.set(tx, 1.25, tz);
+      trunk.castShadow = true;
+      scene.add(trunk);
+      const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 6), canopyMat);
+      canopy.position.set(tx, 3.2, tz);
+      canopy.castShadow = true;
+      scene.add(canopy);
+    }
+
+    // Fuel pump islands (simple boxes)
+    const pumpMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 0.4, metalness: 0.3 });
+    const islandMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.7 });
+    for (let i = 0; i < 3; i++) {
+      const iz = bz - 8 - i * 5;
+      // Island base
+      const island = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 3.5), islandMat);
+      island.position.set(0, 0.075, iz);
+      island.receiveShadow = true;
+      scene.add(island);
+      // Pump
+      const pump = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.8, 0.4), pumpMat);
+      pump.position.set(0, 0.9 + 0.15, iz);
+      pump.castShadow = true;
+      scene.add(pump);
+      // Screen on pump
+      const scrMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x0a2040, emissiveIntensity: 0.1 });
+      const scr = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.01), scrMat);
+      scr.position.set(0, 1.5 + 0.15, iz + 0.21);
+      scene.add(scr);
+    }
+
+    // Canopy over pumps
+    const canopyRoofMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.3, metalness: 0.1 });
+    const canopyRoof = new THREE.Mesh(new THREE.BoxGeometry(8, 0.15, 18), canopyRoofMat);
+    canopyRoof.position.set(0, 4.5, bz - 13);
+    canopyRoof.castShadow = true;
+    canopyRoof.receiveShadow = true;
+    scene.add(canopyRoof);
+    // Canopy pillars
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 0.3, metalness: 0.2 });
+    for (const [px, pz] of [[-3.5, bz - 5], [3.5, bz - 5], [-3.5, bz - 21], [3.5, bz - 21]] as [number, number][]) {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 4.5, 8), pillarMat);
+      pillar.position.set(px, 2.25, pz);
+      pillar.castShadow = true;
+      scene.add(pillar);
+    }
+
     // Snap indicator lines group
     const snapGroup = new THREE.Group();
     snapGroup.userData = { type: 'snapLines' };
@@ -668,11 +750,13 @@ export default function SceneEditor() {
     const el = rendererRef.current?.domElement;
     if (!el) return;
 
+    let pendingDragObj: PlacedObject | null = null;
+
     const handleMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0) return; // Only left click
-      // In FP mode, mouse is for looking — skip all drag/select logic
+      if (e.button !== 0) return;
       if (fpModeRef.current) return;
       mouseDownPosRef.current.set(e.clientX, e.clientY);
+      pendingDragObj = null;
 
       const rect = el.getBoundingClientRect();
       mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -680,12 +764,11 @@ export default function SceneEditor() {
 
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
 
-      // Then check furniture objects
+      // Check if clicking on an object — but DON'T start drag yet (wait for threshold)
       const meshes = objectsRef.current.map(o => o.mesh);
       const intersects = raycasterRef.current.intersectObjects(meshes, true);
 
       if (intersects.length > 0) {
-        // Find which PlacedObject owns this clicked child mesh
         let clicked = intersects[0].object as THREE.Object3D;
         let obj = objectsRef.current.find(o => o.mesh === clicked);
         while (!obj && clicked.parent) {
@@ -693,37 +776,37 @@ export default function SceneEditor() {
           obj = objectsRef.current.find(o => o.mesh === clicked);
         }
         if (obj) {
-          if (selectedRef.current && selectedRef.current !== obj) {
-            highlightObject(selectedRef.current, false);
-          }
-          selectedRef.current = obj;
-          setSelectedObj(obj);
-          highlightObject(obj, true);
-
+          pendingDragObj = obj; // Store but don't drag yet
           const floorPoint = getFloorIntersection(e.clientX, e.clientY);
           if (floorPoint) {
-            dragOffsetRef.current.set(
-              obj.mesh.position.x - floorPoint.x,
-              0,
-              obj.mesh.position.z - floorPoint.z
-            );
+            dragOffsetRef.current.set(obj.mesh.position.x - floorPoint.x, 0, obj.mesh.position.z - floorPoint.z);
           }
-
-          saveSnapshot();
-          isDraggingRef.current = true;
-          // Disable orbit ONLY when dragging an object
-          if (orbitRef.current) orbitRef.current.enabled = false;
-          el.style.cursor = 'grabbing';
-          setStatusMsg(`Drag: ${obj.name}`);
-          e.preventDefault();
-          e.stopPropagation();
         }
       }
-      // If no object hit, OrbitControls handles the event naturally (orbit/pan)
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (fpModeRef.current) return; // FP mode handles its own mouse
+      if (fpModeRef.current) return;
+
+      // Start drag only after 8px threshold (prevents accidental drags)
+      if (pendingDragObj && !isDraggingRef.current) {
+        const dx = e.clientX - mouseDownPosRef.current.x;
+        const dy = e.clientY - mouseDownPosRef.current.y;
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          const obj = pendingDragObj;
+          if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
+          selectedRef.current = obj;
+          setSelectedObj(obj);
+          highlightObject(obj, true);
+          saveSnapshot();
+          isDraggingRef.current = true;
+          if (orbitRef.current) orbitRef.current.enabled = false;
+          el.style.cursor = 'grabbing';
+          setStatusMsg(`Drag: ${obj.name} | R=rotire`);
+          pendingDragObj = null;
+        }
+        return;
+      }
 
       if (!isDraggingRef.current || !selectedRef.current) {
         // Hover effect
@@ -764,7 +847,20 @@ export default function SceneEditor() {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (fpModeRef.current) return; // FP mode handles its own mouse
+      if (fpModeRef.current) return;
+
+      // If we had a pending drag that never started — it's a click on the object (select it)
+      if (pendingDragObj && !isDraggingRef.current) {
+        const obj = pendingDragObj;
+        pendingDragObj = null;
+        if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
+        selectedRef.current = obj;
+        setSelectedObj(obj);
+        highlightObject(obj, true);
+        setStatusMsg(`Selectat: ${obj.name} | R=rotire 22.5° | Shift+R=15° | Del=sterge | D=duplica`);
+        return;
+      }
+      pendingDragObj = null;
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
@@ -848,7 +944,19 @@ export default function SceneEditor() {
         deleteSelected();
       }
       if ((e.key === 'r' || e.key === 'R') && selectedRef.current) {
-        rotateSelected(45);
+        const step = e.shiftKey ? Math.PI / 12 : Math.PI / 8; // Shift=15°, normal=22.5°
+        let angle = selectedRef.current.mesh.rotation.y + step;
+        const snapT = 8 * Math.PI / 180;
+        for (const c of [0, Math.PI / 2, Math.PI, -Math.PI / 2, -Math.PI, 3 * Math.PI / 2, 2 * Math.PI]) {
+          if (Math.abs(angle - c) < snapT) { angle = c; break; }
+        }
+        while (angle > Math.PI) angle -= 2 * Math.PI;
+        while (angle < -Math.PI) angle += 2 * Math.PI;
+        saveSnapshot();
+        selectedRef.current.mesh.rotation.y = angle;
+        setStatusMsg(`Rotit: ${selectedRef.current.name} ${Math.round(angle * 180 / Math.PI)}°`);
+        setSelectedObj({ ...selectedRef.current });
+        checkAllCollisions();
       }
       if (e.key === 'Escape') {
         if (selectedRef.current) {
@@ -1622,7 +1730,7 @@ export default function SceneEditor() {
             <span style={{ color: '#1d1d1f' }}>{statusMsg}</span>
             <div className="flex items-center gap-3">
               <span>{objectCount} obiecte</span>
-              <span className="hidden sm:inline">Drag=Muta | R=Roteste | D=Duplica | Del=Sterge | Ctrl+Z=Undo</span>
+              <span className="hidden sm:inline">Drag=Muta | R=22.5° | Shift+R=15° | snap 0/90/180/270 | D=Duplica | Del=Sterge | Ctrl+Z=Undo</span>
             </div>
           </div>
         )}
