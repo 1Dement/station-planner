@@ -869,12 +869,17 @@ export default function SceneEditor() {
           }
         }
 
-        const meshes = objectsRef.current.map(o => o.mesh);
-        const intersects = raycasterRef.current.intersectObjects(meshes, true);
+        // Raycast ALL scene objects to find what's truly closest
+        const allHittable = [...objectsRef.current.map(o => o.mesh), ...doorPanelsRef.current.map(d => d.pivot)];
+        const sceneHits = raycasterRef.current.intersectObjects(sceneRef.current!.children, true);
+        const objHits = raycasterRef.current.intersectObjects(allHittable, true);
 
-        if (intersects.length > 0) {
-          // Click on object = select it (drag on next mouseDown+move)
-          let clicked = intersects[0].object as THREE.Object3D;
+        // Only select if the object hit is the FIRST thing the ray touches (not behind walls/floor)
+        const firstSceneDist = sceneHits.length > 0 ? sceneHits[0].distance : Infinity;
+        const firstObjDist = objHits.length > 0 ? objHits[0].distance : Infinity;
+
+        if (objHits.length > 0 && firstObjDist <= firstSceneDist + 0.01) {
+          let clicked = objHits[0].object as THREE.Object3D;
           let obj = objectsRef.current.find(o => o.mesh === clicked);
           while (!obj && clicked.parent) { clicked = clicked.parent; obj = objectsRef.current.find(o => o.mesh === clicked); }
           if (obj) {
