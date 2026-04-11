@@ -69,6 +69,8 @@ export default function SceneEditor() {
   const [fpEditMode, setFpEditMode] = useState(false);
   const fpEditRef = useRef(false);
   const [fpAction, setFpAction] = useState<{ obj: PlacedObject; x: number; y: number } | null>(null);
+  const fpCarryRef = useRef<PlacedObject | null>(null);
+  const [fpCarrying, setFpCarrying] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
   const measureLineRef = useRef<THREE.Line | null>(null);
@@ -985,6 +987,8 @@ export default function SceneEditor() {
     setFpMode(false);
     setFpEditMode(false);
     setFpAction(null);
+    fpCarryRef.current = null;
+    setFpCarrying(false);
     fpKeysRef.current.clear();
     if (orbitRef.current && cameraRef.current) {
       orbitRef.current.enabled = true;
@@ -1003,7 +1007,18 @@ export default function SceneEditor() {
     let lastMX = 0, lastMY = 0;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { exitFpMode(); return; }
+      if (e.key === 'Escape') {
+        if (fpCarryRef.current) {
+          // Cancel carry — undo the move
+          undo();
+          fpCarryRef.current = null;
+          setFpCarrying(false);
+          setStatusMsg('Mutare anulata');
+          return;
+        }
+        exitFpMode();
+        return;
+      }
       // FP edit mode shortcuts
       if (fpEditMode && (e.key === 'r' || e.key === 'R') && selectedRef.current) {
         rotateSelected(45); return;
@@ -1043,6 +1058,15 @@ export default function SceneEditor() {
       if (e.button !== 0) return;
       // Ignore clicks that happened on UI elements (not on canvas)
       if (e.target !== el) return;
+
+      // Carrying mode: left click = place object
+      if (fpCarryRef.current) {
+        fpCarryRef.current = null;
+        setFpCarrying(false);
+        setStatusMsg('Obiect plasat');
+        return;
+      }
+
       // Left click = interact (doors, objects in edit mode)
       if (!cameraRef.current) return;
       const rect = el.getBoundingClientRect();
@@ -1148,6 +1172,17 @@ export default function SceneEditor() {
         cam.position.z = nz;
       }
       cam.position.y = 1.7;
+
+      // Carry mode: object follows 2m in front of camera
+      if (fpCarryRef.current) {
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+        fwd.y = 0; fwd.normalize();
+        fpCarryRef.current.mesh.position.set(
+          cam.position.x + fwd.x * 2,
+          0,
+          cam.position.z + fwd.z * 2
+        );
+      }
     };
 
     return () => {
@@ -1306,9 +1341,15 @@ export default function SceneEditor() {
 
             {/* Bottom HUD */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center z-10 pointer-events-none">
-              <div className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,0.8)' }}>
-                <span className="font-mono">WASD</span> mers &nbsp; <span className="font-mono">Shift</span> sprint &nbsp; <span className="font-mono">Click dreapta+drag</span> rotire &nbsp; <span className="font-mono">Click stanga</span> usi{fpEditMode && ' / selectare'}
-              </div>
+              {fpCarrying ? (
+                <div className="px-5 py-2.5 rounded-xl text-xs font-medium" style={{ background: 'rgba(0,113,227,0.85)', backdropFilter: 'blur(6px)', color: '#fff' }}>
+                  Muti obiect — mergi unde vrei apoi <span className="font-mono bg-white/20 px-1.5 py-0.5 rounded">Click stanga</span> = plaseaza &nbsp; <span className="font-mono bg-white/20 px-1.5 py-0.5 rounded">ESC</span> = anuleaza
+                </div>
+              ) : (
+                <div className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: 'rgba(255,255,255,0.7)' }}>
+                  <span className="font-mono">WASD</span> mers &nbsp; <span className="font-mono">Shift</span> sprint &nbsp; <span className="font-mono">RMB+drag</span> rotire &nbsp; <span className="font-mono">LMB</span> usi{fpEditMode && ' / selectare'}
+                </div>
+              )}
             </div>
 
             {/* FP Edit — action popup at click position */}
@@ -1336,18 +1377,16 @@ export default function SceneEditor() {
                 <div className="py-1">
                   <button
                     onClick={() => {
-                      if (!cameraRef.current || !fpAction) return;
+                      if (!fpAction) return;
                       saveSnapshot();
-                      const cam = cameraRef.current;
-                      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-                      dir.y = 0; dir.normalize();
-                      fpAction.obj.mesh.position.set(cam.position.x + dir.x * 2, 0, cam.position.z + dir.z * 2);
-                      setStatusMsg(`Mutat: ${fpAction.obj.name} in fata ta`);
+                      fpCarryRef.current = fpAction.obj;
+                      setFpCarrying(true);
                       setFpAction(null);
+                      setStatusMsg(`Muta: ${fpAction.obj.name} — click stanga = plaseaza`);
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
                   >
-                    <span style={{ fontSize: 14 }}>&#8644;</span> Muta in fata mea
+                    <span style={{ fontSize: 14 }}>&#8644;</span> Muta
                   </button>
                   <button
                     onClick={() => {
