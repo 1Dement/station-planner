@@ -1020,6 +1020,7 @@ export default function SceneEditor() {
 
     // Right-click drag = look around, Left-click = interact
     const onMouseDown = (e: MouseEvent) => {
+      if (e.target !== el) return; // Only canvas clicks
       if (e.button === 2) { // Right click only for look
         mouseDown = true;
         lastMX = e.clientX;
@@ -1040,6 +1041,8 @@ export default function SceneEditor() {
     const onMouseUp = (e: MouseEvent) => {
       if (e.button === 2) { mouseDown = false; el.style.cursor = 'crosshair'; return; }
       if (e.button !== 0) return;
+      // Ignore clicks that happened on UI elements (not on canvas)
+      if (e.target !== el) return;
       // Left click = interact (doors, objects in edit mode)
       if (!cameraRef.current) return;
       const rect = el.getBoundingClientRect();
@@ -1312,6 +1315,9 @@ export default function SceneEditor() {
             {fpAction && (
               <div
                 className="absolute z-30 p-0.5 rounded-2xl"
+                onMouseDown={e => e.stopPropagation()}
+                onMouseUp={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
                 style={{
                   left: Math.min(fpAction.x, window.innerWidth - 200),
                   top: Math.min(fpAction.y, window.innerHeight - 220),
@@ -1344,24 +1350,39 @@ export default function SceneEditor() {
                     <span style={{ fontSize: 14 }}>&#8644;</span> Muta in fata mea
                   </button>
                   <button
-                    onClick={() => { rotateSelected(90); setFpAction(null); }}
+                    onClick={() => {
+                      if (!fpAction) return;
+                      fpAction.obj.mesh.rotation.y += Math.PI / 2;
+                      setStatusMsg(`Rotit: ${fpAction.obj.name} 90°`);
+                      setFpAction(null);
+                    }}
                     className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <span style={{ fontSize: 14 }}>&#8635;</span> Roteste 90°
                   </button>
                   <button
-                    onClick={() => { rotateSelected(45); setFpAction(null); }}
+                    onClick={() => {
+                      if (!fpAction) return;
+                      fpAction.obj.mesh.rotation.y += Math.PI / 4;
+                      setStatusMsg(`Rotit: ${fpAction.obj.name} 45°`);
+                      setFpAction(null);
+                    }}
                     className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <span style={{ fontSize: 14 }}>&#8635;</span> Roteste 45°
                   </button>
                   <button
                     onClick={() => {
-                      if (!fpAction) return;
-                      const name = fpAction.obj.name;
-                      deleteSelected();
+                      if (!fpAction || !sceneRef.current) return;
+                      const obj = fpAction.obj;
+                      sceneRef.current.remove(obj.mesh);
+                      obj.mesh.traverse(c => { if (c instanceof THREE.Mesh) { c.geometry.dispose(); if (c.material instanceof THREE.Material) c.material.dispose(); }});
+                      objectsRef.current = objectsRef.current.filter(o => o.id !== obj.id);
+                      selectedRef.current = null;
+                      setSelectedObj(null);
+                      setObjectCount(objectsRef.current.length);
                       setFpAction(null);
-                      setStatusMsg(`Sters: ${name}`);
+                      setStatusMsg(`Sters: ${obj.name}`);
                     }}
                     className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
                     style={{ color: '#ff453a' }}
