@@ -67,6 +67,8 @@ export default function SceneEditor() {
   const [fpMode, setFpMode] = useState(false);
   const fpModeRef = useRef(false);
   const [fpEditMode, setFpEditMode] = useState(false);
+  const fpEditRef = useRef(false);
+  const [fpAction, setFpAction] = useState<{ obj: PlacedObject; x: number; y: number } | null>(null);
   const [measureMode, setMeasureMode] = useState(false);
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
   const measureLineRef = useRef<THREE.Line | null>(null);
@@ -85,6 +87,7 @@ export default function SceneEditor() {
   useEffect(() => { roomWidthRef.current = roomWidth; }, [roomWidth]);
   useEffect(() => { roomDepthRef.current = roomDepth; }, [roomDepth]);
   useEffect(() => { fpModeRef.current = fpMode; }, [fpMode]);
+  useEffect(() => { fpEditRef.current = fpEditMode; }, [fpEditMode]);
 
   const snap = (v: number) => Math.round(v / GRID_SNAP) * GRID_SNAP;
 
@@ -981,6 +984,7 @@ export default function SceneEditor() {
   const exitFpMode = () => {
     setFpMode(false);
     setFpEditMode(false);
+    setFpAction(null);
     fpKeysRef.current.clear();
     if (orbitRef.current && cameraRef.current) {
       orbitRef.current.enabled = true;
@@ -1061,8 +1065,8 @@ export default function SceneEditor() {
         }
       }
 
-      // In FP edit mode: click objects to select/deselect
-      if (fpEditMode) {
+      // In FP edit mode: click objects → show action popup
+      if (fpEditRef.current) {
         const meshes = objectsRef.current.map(o => o.mesh);
         const objHits = raycasterRef.current.intersectObjects(meshes, true);
         if (objHits.length > 0) {
@@ -1074,12 +1078,14 @@ export default function SceneEditor() {
             selectedRef.current = found;
             setSelectedObj(found);
             highlightObject(found, true);
-            setStatusMsg(`Selectat: ${found.name} | R=rotire | Del=sterge`);
+            // Show action popup at click position
+            setFpAction({ obj: found, x: e.clientX, y: e.clientY });
           }
         } else {
           if (selectedRef.current) highlightObject(selectedRef.current, false);
           selectedRef.current = null;
           setSelectedObj(null);
+          setFpAction(null);
         }
       }
     };
@@ -1286,7 +1292,7 @@ export default function SceneEditor() {
             <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full z-10" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
               <button onClick={exitFpMode} className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: '#ef4444', color: '#fff' }}>ESC Iesire</button>
               <button
-                onClick={() => { setFpEditMode(!fpEditMode); setShowCatalog(!fpEditMode); }}
+                onClick={() => { setFpEditMode(!fpEditMode); setShowCatalog(!fpEditMode); setFpAction(null); }}
                 className="text-xs px-3 py-1 rounded-full font-semibold"
                 style={{ background: fpEditMode ? '#f59e0b' : '#3b82f6', color: '#fff' }}
               >
@@ -1302,14 +1308,74 @@ export default function SceneEditor() {
               </div>
             </div>
 
-            {/* FP Edit — selected object actions */}
-            {fpEditMode && selectedObj && (
-              <div className="absolute top-14 right-3 p-3 rounded-lg z-10" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
-                <h3 className="text-xs font-bold text-white mb-2">{selectedObj.name}</h3>
-                <div className="flex gap-1.5">
-                  <button onClick={() => rotateSelected(45)} className="text-xs px-2 py-1 rounded bg-blue-600 text-white">R 45°</button>
-                  <button onClick={() => rotateSelected(90)} className="text-xs px-2 py-1 rounded bg-blue-600 text-white">R 90°</button>
-                  <button onClick={deleteSelected} className="text-xs px-2 py-1 rounded bg-red-600 text-white">Sterge</button>
+            {/* FP Edit — action popup at click position */}
+            {fpAction && (
+              <div
+                className="absolute z-30 p-0.5 rounded-2xl"
+                style={{
+                  left: Math.min(fpAction.x, window.innerWidth - 200),
+                  top: Math.min(fpAction.y, window.innerHeight - 220),
+                  background: 'rgba(30,30,30,0.9)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  minWidth: 180,
+                }}
+              >
+                <div className="px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <p className="text-xs font-semibold text-white">{fpAction.obj.name}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {(fpAction.obj.dimensions.width * 100).toFixed(0)} x {(fpAction.obj.dimensions.depth * 100).toFixed(0)} cm
+                  </p>
+                </div>
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      if (!cameraRef.current || !fpAction) return;
+                      saveSnapshot();
+                      const cam = cameraRef.current;
+                      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+                      dir.y = 0; dir.normalize();
+                      fpAction.obj.mesh.position.set(cam.position.x + dir.x * 2, 0, cam.position.z + dir.z * 2);
+                      setStatusMsg(`Mutat: ${fpAction.obj.name} in fata ta`);
+                      setFpAction(null);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <span style={{ fontSize: 14 }}>&#8644;</span> Muta in fata mea
+                  </button>
+                  <button
+                    onClick={() => { rotateSelected(90); setFpAction(null); }}
+                    className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <span style={{ fontSize: 14 }}>&#8635;</span> Roteste 90°
+                  </button>
+                  <button
+                    onClick={() => { rotateSelected(45); setFpAction(null); }}
+                    className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <span style={{ fontSize: 14 }}>&#8635;</span> Roteste 45°
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!fpAction) return;
+                      const name = fpAction.obj.name;
+                      deleteSelected();
+                      setFpAction(null);
+                      setStatusMsg(`Sters: ${name}`);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+                    style={{ color: '#ff453a' }}
+                  >
+                    <span style={{ fontSize: 14 }}>&#10005;</span> Sterge
+                  </button>
+                </div>
+                <div className="py-1" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  <button
+                    onClick={() => { setFpAction(null); if (selectedRef.current) highlightObject(selectedRef.current, false); selectedRef.current = null; setSelectedObj(null); }}
+                    className="w-full text-left px-3 py-2 text-xs text-white/50 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    Inchide
+                  </button>
                 </div>
               </div>
             )}
