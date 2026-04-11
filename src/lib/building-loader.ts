@@ -262,14 +262,55 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       if (arcEndDeg <= startDeg) arcEndDeg += 360;
       const arcEndRad = arcEndDeg * Math.PI / 180;
 
-      // Door panel (movable) — only the panel, no frame/boxes
+      // Find nearest wall to get direction
+      let wallAngle = startRad;
+      let bestDist = Infinity;
+      for (const ws of wallSegments) {
+        const wx = ws.x2 - ws.x1, wz = ws.z2 - ws.z1;
+        const len2 = wx * wx + wz * wz;
+        if (len2 < 0.01) continue;
+        const t = Math.max(0, Math.min(1, ((door.x - ws.x1) * wx + (door.z - ws.z1) * wz) / len2));
+        const cx = ws.x1 + t * wx, cz = ws.z1 + t * wz;
+        const dist = Math.sqrt((door.x - cx) ** 2 + (door.z - cz) ** 2);
+        if (dist < bestDist && dist < 1.0) { bestDist = dist; wallAngle = Math.atan2(wz, wx); }
+      }
+      // Snap to 90°
+      const snapAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2, -Math.PI];
+      let minDiff = Infinity;
+      for (const sa of snapAngles) { const diff = Math.abs(wallAngle - sa); if (diff < minDiff) { minDiff = diff; wallAngle = sa; } }
+
+      const cosA = Math.cos(wallAngle), sinA = Math.sin(wallAngle);
+      const latchX = door.x + cosA * dw, latchZ = door.z + sinA * dw;
+
+      // Door jambs (thin wall-colored strips at edges of opening)
+      const JAMB_W = 0.04;
+      const WALL_T = 0.20;
+      const jambMat = wallMat;
+      // Hinge side jamb
+      const j1 = new THREE.Mesh(new THREE.BoxGeometry(JAMB_W, DOOR_H, WALL_T), jambMat);
+      j1.position.set(door.x, DOOR_H / 2, door.z);
+      j1.rotation.y = -wallAngle;
+      group.add(j1);
+      // Latch side jamb
+      const j2 = new THREE.Mesh(new THREE.BoxGeometry(JAMB_W, DOOR_H, WALL_T), jambMat);
+      j2.position.set(latchX, DOOR_H / 2, latchZ);
+      j2.rotation.y = -wallAngle;
+      group.add(j2);
+      // Header (top of opening)
+      const midX = (door.x + latchX) / 2, midZ = (door.z + latchZ) / 2;
+      const header = new THREE.Mesh(new THREE.BoxGeometry(dw + JAMB_W * 2, 0.04, WALL_T), jambMat);
+      header.position.set(midX, DOOR_H, midZ);
+      header.rotation.y = -wallAngle;
+      group.add(header);
+
+      // Door panel (movable)
       doorPanels.push({
         hingeX: door.x, hingeZ: door.z,
         width: dw, height: DOOR_H,
         startAngle: startRad, endAngle: arcEndRad,
       });
 
-      // Arc on floor — CCW from startAngle to arcEndAngle
+      // Arc on floor
       const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
       const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.02, p.y));
       group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
