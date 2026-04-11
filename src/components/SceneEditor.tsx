@@ -73,6 +73,7 @@ export default function SceneEditor() {
   const fpKeysRef = useRef<Set<string>>(new Set());
   const fpYawRef = useRef(0);
   const fpPitchRef = useRef(0);
+  const fpTickRef = useRef<(() => void) | null>(null);
 
   // Undo/redo
   interface HistoryEntry { id: string; x: number; z: number; ry: number }
@@ -358,10 +359,14 @@ export default function SceneEditor() {
     composer.addPass(new OutputPass());
     composerRef.current = composer;
 
-    // Animation loop
+    // Animation loop (single loop for both orbit + FP mode)
     const animate = () => {
       requestAnimationFrame(animate);
-      orbit.update();
+      if (orbit.enabled) {
+        orbit.update();
+      } else if (fpTickRef.current) {
+        fpTickRef.current();
+      }
       composer.render();
     };
     animate();
@@ -951,6 +956,7 @@ export default function SceneEditor() {
   const enterFpMode = () => {
     if (!cameraRef.current || !orbitRef.current) return;
     setFpMode(true);
+    orbitRef.current.saveState();
     orbitRef.current.enabled = false;
     const cam = cameraRef.current;
     // Start at entrance (sliding door gap between front windows, Z≈-6.5)
@@ -1024,11 +1030,8 @@ export default function SceneEditor() {
     el.addEventListener('contextmenu', onContextMenu);
     el.style.cursor = 'crosshair';
 
-    // Movement tick inside the main animation already runs via OrbitControls update
-    // But we need our own tick for camera updates
-    let animId: number;
-    const tick = () => {
-      animId = requestAnimationFrame(tick);
+    // FP tick called from main animation loop (no separate rAF)
+    fpTickRef.current = () => {
       const cam = cameraRef.current;
       if (!cam) return;
 
@@ -1047,10 +1050,9 @@ export default function SceneEditor() {
       if (keys.has('d') || keys.has('arrowright')) cam.position.addScaledVector(right, speed);
       cam.position.y = 1.7;
     };
-    tick();
 
     return () => {
-      cancelAnimationFrame(animId);
+      fpTickRef.current = null;
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       el.removeEventListener('mousedown', onMouseDown);
