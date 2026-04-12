@@ -1020,6 +1020,40 @@ export default function SceneEditor() {
     setStatusMsg('Layout exportat!');
   };
 
+  const saveLayoutToStorage = () => {
+    const data = exportLayout(objectsRef.current, roomWidth, roomDepth);
+    localStorage.setItem('station-planner-layout', JSON.stringify(data));
+    setStatusMsg(`Layout salvat local (${objectsRef.current.length} obiecte)`);
+  };
+
+  const loadLayoutFromStorage = () => {
+    const raw = localStorage.getItem('station-planner-layout');
+    if (!raw) { setStatusMsg('Niciun layout salvat local'); return; }
+    try {
+      const data = JSON.parse(raw);
+      objectsRef.current.forEach(obj => {
+        sceneRef.current?.remove(obj.mesh);
+        obj.mesh.traverse(c => { if (c instanceof THREE.Mesh) { c.geometry.dispose(); if (c.material instanceof THREE.Material) c.material.dispose(); }});
+      });
+      objectsRef.current = [];
+      selectedRef.current = null;
+      setSelectedObj(null);
+      data.objects?.forEach((objData: { catalogId: string; position: { x: number; z: number }; rotation: number }) => {
+        const item = CATALOG.find(c => c.id === objData.catalogId);
+        if (item) {
+          const pos = new THREE.Vector3(objData.position.x, 0, objData.position.z);
+          const obj = createPlacedObject(item, pos);
+          obj.mesh.rotation.y = (objData.rotation || 0) * (Math.PI / 180);
+          sceneRef.current?.add(obj.mesh);
+          objectsRef.current.push(obj);
+        }
+      });
+      setObjectCount(objectsRef.current.length);
+      setStatusMsg(`Layout incarcat: ${objectsRef.current.length} obiecte`);
+      checkAllCollisions();
+    } catch { setStatusMsg('Eroare la incarcarea layout-ului local'); }
+  };
+
   const handleImportLayout = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1558,13 +1592,17 @@ export default function SceneEditor() {
           </div>
 
           {/* Bottom actions */}
-          <div className="px-3 py-3 flex gap-2" style={{ borderTop: '1px solid #e5e5ea' }}>
+          <div className="px-3 py-2 flex gap-2" style={{ borderTop: '1px solid #e5e5ea' }}>
             <button onClick={handleExport} className="flex-1 text-[11px] py-2 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#0071e3', color: '#fff' }}>Export</button>
             <button onClick={handleScreenshot} className="flex-1 text-[11px] py-2 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>Screenshot</button>
             <label className="flex-1 text-[11px] py-2 rounded-lg font-medium text-center cursor-pointer transition-all hover:opacity-90" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>
               Import
               <input type="file" accept=".json" onChange={handleImportLayout} className="hidden" />
             </label>
+          </div>
+          <div className="px-3 pb-3 flex gap-2">
+            <button onClick={saveLayoutToStorage} className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#30d158', color: '#fff' }}>Salveaza</button>
+            <button onClick={loadLayoutFromStorage} className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>Incarca</button>
           </div>
         </div>
       </div>
