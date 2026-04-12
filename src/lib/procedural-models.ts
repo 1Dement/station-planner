@@ -598,6 +598,52 @@ function createSelfCheckout(w: number, h: number, d: number): THREE.Group {
   return group;
 }
 
+// === EV CHARGER ===
+function createEVCharger(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a8a4a, roughness: 0.3, metalness: 0.4 });
+  // Main body
+  group.add(box(w, h * 0.75, d, bodyMat, 0, h * 0.375, 0));
+  // Top section (slightly wider)
+  group.add(box(w + 0.02, h * 0.08, d + 0.02, bodyMat, 0, h * 0.78, 0));
+  // Screen
+  group.add(box(w * 0.6, h * 0.15, 0.01, screenMat, 0, h * 0.6, d / 2 + 0.005));
+  // Charging cable holder (cylinder on side)
+  group.add(cyl(0.025, 0.15, darkMetal, w / 2 - 0.02, h * 0.4, 0));
+  // Status LED strip
+  group.add(box(w * 0.8, 0.015, 0.01, greenLed, 0, h * 0.72, d / 2 + 0.005));
+  // Base plate
+  group.add(box(w + 0.04, 0.03, d + 0.04, darkMetal, 0, 0.015, 0));
+  return group;
+}
+
+// === PARCEL LOCKER ===
+function createParcelLocker(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, roughness: 0.4, metalness: 0.3 });
+  // Main body
+  group.add(box(w, h, d, bodyMat, 0, h / 2, 0));
+  // Locker doors grid (3 columns x 4 rows)
+  const cols = 3, rows = 4;
+  const doorW = (w - 0.06) / cols;
+  const doorH = (h - 0.15) / rows;
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0xc89b20, roughness: 0.35, metalness: 0.4 });
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const dx = -w / 2 + 0.03 + doorW * c + doorW / 2;
+      const dy = 0.05 + doorH * r + doorH / 2;
+      group.add(box(doorW - 0.01, doorH - 0.01, 0.015, doorMat, dx, dy, d / 2 - 0.005));
+      // Small handle
+      group.add(box(0.015, 0.015, 0.01, darkMetal, dx + doorW * 0.3, dy, d / 2 + 0.005));
+    }
+  }
+  // Screen + scanner at top center
+  group.add(box(w * 0.3, h * 0.08, 0.02, screenMat, 0, h - 0.06, d / 2 + 0.01));
+  // Brand strip
+  group.add(box(w, 0.04, 0.01, darkMat, 0, h - 0.02, d / 2 + 0.005));
+  return group;
+}
+
 // === GENERIC BOX (better fallback) ===
 function createGenericBox(w: number, h: number, d: number, color: string): THREE.Group {
   const group = new THREE.Group();
@@ -655,6 +701,9 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
 
   // Outdoor
   if (id === 'bollard') return createBollard(w, h, d);
+  if (id.includes('ev-charger')) return createEVCharger(w, h, d);
+  if (id === 'parcel-locker') return createParcelLocker(w, h, d);
+  if (id === 'vacuum-station' || id === 'air-pump') return createTotem(w, h, d);
 
   // Decoratiuni
   if (id === 'indoor-plant') return createPlant(w, h, d);
@@ -672,6 +721,10 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
   if (id === 'self-checkout') return createSelfCheckout(w, h, d);
   if (id === 'lottery-terminal') return createATM(w, h, d);
   if (id === 'checkout-conveyor') return createCounter(w, h, d);
+  if (id === 'gift-card-rack') return createShelfWall(w, h, d);
+
+  // Tech extras
+  if (id === 'phone-charging-station') return createTotem(w, h, d);
 
   // Signage
   if (id === 'price-totem') return createTotem(w, h, d);
