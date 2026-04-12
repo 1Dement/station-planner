@@ -1,3 +1,13 @@
 timestamp	experiment	hypothesis	score	status
 2026-04-10T10:00:00	add-5-missing-features	Adding Multi-Select, Dark Mode, Area Calc, Floor Texture, Object Info Panel increases feature score from 17 to 20	93	KEEP
 2026-04-10T10:05:00	expand-catalog-117-items	Adding 62 items across 8 new categories (outdoor, signage, cleaning, checkout, automotive, storage, lighting, decor) maxes catalog score	100	KEEP
+2026-04-10T12:00:00	add-6-procedural-models	Adding plant, bollard, security camera, water dispenser, pallet rack, self-checkout models + routing 17 items away from generic box	100	KEEP
+2026-04-10T12:15:00	add-8-modern-items	Adding EV chargers, parcel locker, phone charging, defibrillator + dedicated models for EV charger and parcel locker	100	KEEP
+2026-04-10T12:30:00	add-3-models-route-14	Adding basket stack, sanitizer stand, ceiling panel models + routing 14 more items (automotive, cleaning, lighting, depozitare)	100	KEEP
+2026-04-10T12:45:00	localstorage-save-load	Adding localStorage save/load layout persistence with UI buttons	100	KEEP
+2026-04-10T13:00:00	fuel-pump-canopy-firehose	Adding fuel pump, canopy pillar, fire hose cabinet models + 3 new outdoor catalog items	100	KEEP
+2026-04-10T13:15:00	mop-bucket-wetfloor-sign	Adding mop bucket and wet floor sign procedural models	100	KEEP
+2026-04-10T13:30:00	clear-all-category-counts	Adding Clear All button, category item counts in UI	100	KEEP
+2026-04-10T13:45:00	print-layout	Adding Print Layout feature with top-down view and object list	100	KEEP
+2026-04-10T14:00:00	catalog-search	Adding catalog search/filter feature for 128+ items	100	KEEP
+2026-04-10T14:15:00	description-tooltips	Adding description tooltips on catalog item hover	100	KEEP
