@@ -1,2 +1,3 @@
 timestamp	experiment	hypothesis	score	status
 2026-04-10T10:00:00	add-5-missing-features	Adding Multi-Select, Dark Mode, Area Calc, Floor Texture, Object Info Panel increases feature score from 17 to 20	93	KEEP
+2026-04-10T10:05:00	expand-catalog-117-items	Adding 62 items across 8 new categories (outdoor, signage, cleaning, checkout, automotive, storage, lighting, decor) maxes catalog score	100	KEEP

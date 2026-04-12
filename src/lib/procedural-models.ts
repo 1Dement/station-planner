@@ -467,6 +467,137 @@ function createTrash(w: number, h: number, d: number): THREE.Group {
   return group;
 }
 
+// === INDOOR PLANT ===
+function createPlant(w: number, h: number, _d: number): THREE.Group {
+  const group = new THREE.Group();
+  const potMat = new THREE.MeshStandardMaterial({ color: 0x8b5e3c, roughness: 0.8, metalness: 0.05 });
+  const soilMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.95, metalness: 0 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d7a2d, roughness: 0.7, metalness: 0 });
+
+  // Pot (tapered cylinder)
+  const potH = h * 0.25;
+  const potR = w / 2 - 0.02;
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(potR, potR * 0.8, potH, 12), potMat).translateY(potH / 2));
+  // Pot rim
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(potR + 0.015, potR + 0.015, 0.025, 12), potMat).translateY(potH));
+  // Soil
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(potR - 0.01, potR - 0.01, 0.02, 12), soilMat).translateY(potH - 0.01));
+
+  // Trunk
+  const trunkH = h * 0.35;
+  group.add(cyl(0.025, trunkH, new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.8 }), 0, potH + trunkH / 2, 0, 6));
+
+  // Foliage spheres (cluster)
+  const foliageY = potH + trunkH;
+  const foliageR = w * 0.45;
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(foliageR, 8, 6), leafMat).translateY(foliageY + foliageR * 0.5));
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(foliageR * 0.7, 8, 6), leafMat).translateX(foliageR * 0.4).translateY(foliageY + foliageR * 0.2));
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(foliageR * 0.7, 8, 6), leafMat).translateX(-foliageR * 0.35).translateY(foliageY + foliageR * 0.3));
+
+  return group;
+}
+
+// === BOLLARD (protective pillar) ===
+function createBollard(_w: number, h: number, _d: number): THREE.Group {
+  const group = new THREE.Group();
+  const bollardMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.35, metalness: 0.5 });
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, h, 12), bollardMat).translateY(h / 2));
+  // Top cap
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(0.068, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), bollardMat).translateY(h));
+  // Base plate
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 12), darkMetal).translateY(0.01));
+  // Reflective stripe
+  const stripeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.1, roughness: 0.3 });
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.06, 12), stripeMat).translateY(h * 0.7));
+  return group;
+}
+
+// === SECURITY CAMERA ===
+function createSecurityCamera(w: number, h: number, _d: number): THREE.Group {
+  const group = new THREE.Group();
+  const camMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.3, metalness: 0.4 });
+  // Dome base
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, h * 0.3, 16), camMat).translateY(h * 0.15));
+  // Dome (half sphere)
+  const domeMat = new THREE.MeshPhysicalMaterial({ color: 0x222222, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.7, clearcoat: 1.0 });
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(w / 2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), domeMat).translateY(h * 0.3));
+  // LED indicator
+  group.add(new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 6), greenLed).translateX(w * 0.25).translateY(h * 0.2).translateZ(w * 0.25));
+  return group;
+}
+
+// === WATER DISPENSER ===
+function createWaterDispenser(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.1 });
+  // Body
+  group.add(box(w, h * 0.65, d, bodyMat, 0, h * 0.325, 0));
+  // Water bottle (transparent blue cylinder on top)
+  const bottleMat = new THREE.MeshPhysicalMaterial({ color: 0x3388cc, roughness: 0.1, transparent: true, opacity: 0.3, clearcoat: 0.8 });
+  const bottleR = w * 0.35;
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(bottleR, bottleR, h * 0.3, 12), bottleMat).translateY(h * 0.82));
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(bottleR * 0.3, bottleR, h * 0.05, 12), bottleMat).translateY(h * 0.65));
+  // Tap nozzles (hot/cold)
+  group.add(box(0.02, 0.04, 0.02, redMat, -w * 0.15, h * 0.45, d / 2 + 0.01));
+  group.add(box(0.02, 0.04, 0.02, blueMat, w * 0.15, h * 0.45, d / 2 + 0.01));
+  // Drip tray
+  group.add(box(w * 0.6, 0.015, d * 0.25, metalMat, 0, h * 0.3, d / 2 - 0.02));
+  return group;
+}
+
+// === PALLET RACK ===
+function createPalletRack(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const rackMat = new THREE.MeshStandardMaterial({ color: 0xff6600, roughness: 0.5, metalness: 0.4 });
+  const beamMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.4, metalness: 0.5 });
+
+  // 4 uprights
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      group.add(box(0.05, h, 0.05, rackMat, sx * (w / 2 - 0.025), h / 2, sz * (d / 2 - 0.025)));
+    }
+  }
+
+  // Horizontal beams (3 levels)
+  for (let i = 0; i < 3; i++) {
+    const y = (i + 1) * (h / 3) - 0.02;
+    // Front and back beams
+    for (const sz of [-1, 1]) {
+      group.add(box(w - 0.06, 0.06, 0.04, beamMat, 0, y, sz * (d / 2 - 0.04)));
+    }
+    // Shelf boards (wire decking simulated)
+    group.add(box(w - 0.08, 0.015, d - 0.08, brushedMetal, 0, y + 0.03, 0));
+  }
+
+  // Cross bracing on sides (simulated with thin boxes)
+  for (const sx of [-1, 1]) {
+    group.add(box(0.015, h * 0.9, 0.015, rackMat, sx * (w / 2 - 0.025), h * 0.48, 0));
+  }
+
+  return group;
+}
+
+// === SELF-CHECKOUT TERMINAL ===
+function createSelfCheckout(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.2 });
+  // Base unit
+  group.add(box(w, h * 0.5, d, bodyMat, 0, h * 0.25, 0));
+  // Screen on angled pole
+  group.add(cyl(0.02, h * 0.3, brushedMetal, 0, h * 0.6, -d * 0.1));
+  group.add(box(w * 0.6, h * 0.25, 0.02, screenMat, 0, h * 0.8, -d * 0.1));
+  // Screen bezel
+  const bezelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.15, metalness: 0.6 });
+  group.add(box(w * 0.65, h * 0.27, 0.025, bezelMat, 0, h * 0.8, -d * 0.11));
+  // Scanner window (on top surface)
+  group.add(box(w * 0.4, 0.01, d * 0.3, new THREE.MeshPhysicalMaterial({ color: 0x880000, roughness: 0.1, metalness: 0.3, clearcoat: 0.5 }), 0, h * 0.51, d * 0.1));
+  // Card reader slot
+  group.add(box(0.06, 0.08, 0.03, darkMetal, w * 0.3, h * 0.55, d / 2 - 0.01));
+  // Bag area
+  group.add(box(w * 0.4, 0.01, d * 0.4, brushedMetal, -w * 0.25, h * 0.5, d * 0.2));
+  return group;
+}
+
 // === GENERIC BOX (better fallback) ===
 function createGenericBox(w: number, h: number, d: number, color: string): THREE.Group {
   const group = new THREE.Group();
@@ -520,6 +651,31 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
 
   // Siguranță
   if (id === 'fire-extinguisher') return createExtinguisher(w, h, d);
+  if (id === 'security-camera' || id === 'smoke-detector') return createSecurityCamera(w, h, d);
+
+  // Outdoor
+  if (id === 'bollard') return createBollard(w, h, d);
+
+  // Decoratiuni
+  if (id === 'indoor-plant') return createPlant(w, h, d);
+
+  // Food extras
+  if (id === 'water-dispenser') return createWaterDispenser(w, h, d);
+  if (id === 'popcorn-machine') return createVitrine(w, h, d);
+
+  // Depozitare
+  if (id === 'pallet-rack') return createPalletRack(w, h, d);
+  if (id === 'storage-shelf') return createShelfWall(w, h, d);
+  if (id === 'newspaper-stand') return createShelfWall(w, h, d);
+
+  // Checkout
+  if (id === 'self-checkout') return createSelfCheckout(w, h, d);
+  if (id === 'lottery-terminal') return createATM(w, h, d);
+  if (id === 'checkout-conveyor') return createCounter(w, h, d);
+
+  // Signage
+  if (id === 'price-totem') return createTotem(w, h, d);
+  if (id === 'digital-menu-board' || id === 'entrance-sign') return createLCD(w, h, d);
 
   return createGenericBox(w, h, d, item.color);
 }
