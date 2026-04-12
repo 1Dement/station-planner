@@ -1167,6 +1167,31 @@ export default function SceneEditor() {
     }
   };
 
+  const handlePrintLayout = () => {
+    if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
+    // Capture top-down view
+    const cam = cameraRef.current;
+    const savedPos = cam.position.clone();
+    const savedTarget = orbitRef.current?.target.clone();
+    cam.position.set(0, 15, 0.01);
+    orbitRef.current?.target.set(0, 0, 0);
+    orbitRef.current?.update();
+    rendererRef.current.render(sceneRef.current, cam);
+    const imgData = rendererRef.current.domElement.toDataURL('image/png');
+    // Restore camera
+    cam.position.copy(savedPos);
+    if (savedTarget && orbitRef.current) { orbitRef.current.target.copy(savedTarget); orbitRef.current.update(); }
+    // Print window with layout image + object list
+    const objList = objectsRef.current.map(o => `<li>${o.name} (${(o.dimensions.width*100).toFixed(0)}x${(o.dimensions.depth*100).toFixed(0)}cm) pos: ${o.mesh.position.x.toFixed(1)},${o.mesh.position.z.toFixed(1)}</li>`).join('');
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(`<html><head><title>Station Layout</title><style>body{font-family:sans-serif;padding:20px}img{max-width:100%;border:1px solid #ccc}ul{columns:2;font-size:12px}</style></head><body><h2>Station Planner Layout</h2><p>${objectsRef.current.length} obiecte | ${roomWidth}x${roomDepth}m | ${new Date().toLocaleDateString()}</p><img src="${imgData}"/><h3>Lista obiectelor</h3><ul>${objList}</ul></body></html>`);
+      win.document.close();
+      win.print();
+    }
+    setStatusMsg('Layout trimis la imprimanta');
+  };
+
   const handleScreenshot = () => {
     if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
     rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -1618,6 +1643,7 @@ export default function SceneEditor() {
           <div className="px-3 pb-3 flex gap-2">
             <button onClick={saveLayoutToStorage} className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#30d158', color: '#fff' }}>Salveaza</button>
             <button onClick={loadLayoutFromStorage} className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>Incarca</button>
+            <button onClick={handlePrintLayout} className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-all hover:opacity-90" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>Print</button>
           </div>
         </div>
       </div>
