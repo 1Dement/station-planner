@@ -1056,6 +1056,33 @@ export const CATALOG: CatalogItem[] = [
     description: 'Suport umbrele inox la intrare',
     icon: '☂️',
   },
+  {
+    id: 'fuel-pump',
+    name: 'Pompă Carburant',
+    category: 'outdoor',
+    width: 0.50, depth: 0.40, height: 1.80,
+    color: '#D4D4D4', clearance: 2.0,
+    description: 'Pompă carburant 2 produse (benzină/diesel)',
+    icon: '⛽',
+  },
+  {
+    id: 'fuel-pump-multi',
+    name: 'Pompă Multi-Produs',
+    category: 'outdoor',
+    width: 0.60, depth: 0.45, height: 2.00,
+    color: '#D4D4D4', clearance: 2.0,
+    description: 'Pompă multi-produs 4 furtune (benzina 95/98/diesel/GPL)',
+    icon: '⛽',
+  },
+  {
+    id: 'lpg-tank',
+    name: 'Rezervor GPL',
+    category: 'outdoor',
+    width: 2.00, depth: 1.20, height: 1.00,
+    color: '#808080', clearance: 3.0,
+    description: 'Rezervor GPL suprateran, 5000L',
+    icon: '⛽',
+  },
 ];
 
 export function getCatalogByCategory(category: string): CatalogItem[] {

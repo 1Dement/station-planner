@@ -695,6 +695,59 @@ function createCeilingPanel(w: number, h: number, d: number): THREE.Group {
   return group;
 }
 
+// === FUEL PUMP ===
+function createFuelPump(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 0.35, metalness: 0.3 });
+  // Main body
+  group.add(box(w, h * 0.65, d, bodyMat, 0, h * 0.325, 0));
+  // Top header (brand area)
+  group.add(box(w + 0.02, h * 0.12, d + 0.02, darkMetal, 0, h * 0.78, 0));
+  // Screen
+  group.add(box(w * 0.5, h * 0.12, 0.01, screenMat, 0, h * 0.55, d / 2 + 0.005));
+  // Nozzle holders (2 sides)
+  for (const sx of [-0.25, 0.25]) {
+    group.add(box(0.04, 0.12, 0.06, darkMat, w * sx, h * 0.35, d / 2 + 0.03));
+    // Hose mount
+    group.add(cyl(0.015, 0.08, darkMat, w * sx, h * 0.42, d / 2 + 0.04));
+  }
+  // Keypad
+  group.add(box(w * 0.3, h * 0.08, 0.015, new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.3, metalness: 0.5 }), 0, h * 0.4, d / 2 + 0.01));
+  // Base (island integration)
+  group.add(box(w + 0.06, 0.04, d + 0.06, metalMat, 0, 0.02, 0));
+  return group;
+}
+
+// === CANOPY PILLAR (tall structural) ===
+function createCanopyPillar(_w: number, h: number, _d: number): THREE.Group {
+  const group = new THREE.Group();
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 0.3, metalness: 0.3 });
+  // Main column (round)
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, h, 12), pillarMat).translateY(h / 2));
+  // Base plate
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 12), darkMetal).translateY(0.02));
+  // Top cap
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.13, 0.08, 12), pillarMat).translateY(h - 0.04));
+  return group;
+}
+
+// === FIRE HOSE CABINET ===
+function createFireHoseCabinet(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const cabinetMat = new THREE.MeshStandardMaterial({ color: 0xcc0000, roughness: 0.4, metalness: 0.3 });
+  // Cabinet body
+  group.add(box(w, h, d, cabinetMat, 0, h / 2, 0));
+  // Glass door
+  group.add(box(w - 0.04, h - 0.04, 0.01, glassMat, 0, h / 2, d / 2 - 0.005));
+  // Handle
+  group.add(box(0.015, 0.12, 0.02, metalMat, w / 2 - 0.03, h / 2, d / 2 + 0.01));
+  // Hose reel visible inside (circle)
+  group.add(new THREE.Mesh(new THREE.TorusGeometry(h * 0.25, 0.02, 8, 16), new THREE.MeshStandardMaterial({ color: 0x880000, roughness: 0.5 })).translateY(h / 2).translateZ(-d * 0.1));
+  // Label "HIDRANT" (white strip)
+  group.add(box(w * 0.6, 0.03, 0.005, whiteMat, 0, h - 0.04, d / 2 + 0.005));
+  return group;
+}
+
 // === GENERIC BOX (better fallback) ===
 function createGenericBox(w: number, h: number, d: number, color: string): THREE.Group {
   const group = new THREE.Group();
@@ -749,12 +802,17 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
   // Siguranță
   if (id === 'fire-extinguisher') return createExtinguisher(w, h, d);
   if (id === 'security-camera' || id === 'smoke-detector') return createSecurityCamera(w, h, d);
+  if (id === 'fire-hose') return createFireHoseCabinet(w, h, d);
+  if (id === 'exit-sign' || id === 'emergency-light') return createLCD(w, h, d);
 
   // Outdoor
   if (id === 'bollard') return createBollard(w, h, d);
   if (id.includes('ev-charger')) return createEVCharger(w, h, d);
   if (id === 'parcel-locker') return createParcelLocker(w, h, d);
   if (id === 'vacuum-station' || id === 'air-pump') return createTotem(w, h, d);
+  if (id === 'canopy-pillar') return createCanopyPillar(w, h, d);
+  if (id.includes('fuel-pump')) return createFuelPump(w, h, d);
+  if (id === 'windshield-washer') return createSanitizerStand(w, h, d);
 
   // Decoratiuni
   if (id === 'indoor-plant') return createPlant(w, h, d);
