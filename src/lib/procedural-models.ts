@@ -644,6 +644,57 @@ function createParcelLocker(w: number, h: number, d: number): THREE.Group {
   return group;
 }
 
+// === SHOPPING BASKET STACK ===
+function createBasketStack(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const basketMat = new THREE.MeshStandardMaterial({ color: 0xff4500, roughness: 0.6, metalness: 0.1 });
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.6 });
+  // Stack of 5 nested baskets
+  const basketH = h / 6;
+  for (let i = 0; i < 5; i++) {
+    const y = i * basketH + basketH / 2;
+    // Basket body (open top)
+    group.add(box(w - 0.02, basketH * 0.8, d - 0.02, basketMat, 0, y, 0));
+    // Handles
+    group.add(box(w * 0.03, basketH * 0.5, 0.015, handleMat, -w / 2 + 0.02, y + basketH * 0.4, 0));
+    group.add(box(w * 0.03, basketH * 0.5, 0.015, handleMat, w / 2 - 0.02, y + basketH * 0.4, 0));
+  }
+  // Floor frame
+  group.add(box(w + 0.04, 0.02, d + 0.04, brushedMetal, 0, 0.01, 0));
+  return group;
+}
+
+// === HAND SANITIZER STAND ===
+function createSanitizerStand(_w: number, h: number, _d: number): THREE.Group {
+  const group = new THREE.Group();
+  // Pole
+  group.add(cyl(0.02, h * 0.7, brushedMetal, 0, h * 0.35, 0));
+  // Base (3 feet)
+  for (let a = 0; a < 3; a++) {
+    const angle = (a / 3) * Math.PI * 2;
+    group.add(box(0.15, 0.015, 0.03, brushedMetal, Math.cos(angle) * 0.1, 0.008, Math.sin(angle) * 0.1));
+  }
+  // Dispenser unit on top
+  group.add(box(0.08, h * 0.18, 0.06, whiteMat, 0, h * 0.8, 0));
+  // Drip tray
+  group.add(box(0.1, 0.01, 0.06, brushedMetal, 0, h * 0.68, 0.02));
+  // Sensor area (small dark dot)
+  group.add(box(0.015, 0.015, 0.005, darkMat, 0, h * 0.72, 0.035));
+  return group;
+}
+
+// === CEILING LED PANEL ===
+function createCeilingPanel(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.3 });
+  const ledMat = new THREE.MeshStandardMaterial({ color: 0xfffff0, emissive: 0xfffff0, emissiveIntensity: 0.5, roughness: 0.2 });
+  // Frame
+  group.add(box(w, h, d, frameMat, 0, h / 2, 0));
+  // LED surface (slightly recessed)
+  group.add(box(w - 0.02, 0.005, d - 0.02, ledMat, 0, h * 0.3, 0));
+  return group;
+}
+
 // === GENERIC BOX (better fallback) ===
 function createGenericBox(w: number, h: number, d: number, color: string): THREE.Group {
   const group = new THREE.Group();
@@ -707,6 +758,7 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
 
   // Decoratiuni
   if (id === 'indoor-plant') return createPlant(w, h, d);
+  if (id === 'flower-display' || id === 'season-display') return createShelfWall(w, h, d);
 
   // Food extras
   if (id === 'water-dispenser') return createWaterDispenser(w, h, d);
@@ -716,6 +768,19 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
   if (id === 'pallet-rack') return createPalletRack(w, h, d);
   if (id === 'storage-shelf') return createShelfWall(w, h, d);
   if (id === 'newspaper-stand') return createShelfWall(w, h, d);
+  if (id === 'shopping-basket-stack') return createBasketStack(w, h, d);
+  if (id === 'roll-container') return createPalletRack(w, h, d);
+
+  // Automotive
+  if (id === 'oil-display' || id === 'wiper-stand' || id === 'tire-inflator-display') return createShelfWall(w, h, d);
+  if (id === 'car-wash-vending' || id === 'adblue-dispenser') return createATM(w, h, d);
+
+  // Cleaning
+  if (id === 'hand-sanitizer') return createSanitizerStand(w, h, d);
+
+  // Lighting
+  if (id.includes('ceiling-panel') || id === 'shelf-light-strip') return createCeilingPanel(w, h, d);
+  if (id === 'spot-track') return createCeilingPanel(w, h, d);
 
   // Checkout
   if (id === 'self-checkout') return createSelfCheckout(w, h, d);
