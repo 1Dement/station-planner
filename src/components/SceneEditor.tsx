@@ -1624,6 +1624,7 @@ export default function SceneEditor() {
               <button
                 key={item.id}
                 onClick={() => addObject(item)}
+                title={item.description}
                 className="w-full text-left px-3 py-2.5 mb-1 rounded-xl transition-all hover:shadow-sm active:scale-[0.98]"
                 style={{ background: '#f5f5f7', border: '1px solid transparent' }}
                 onMouseEnter={e => { (e.target as HTMLElement).style.background = '#eef0f2'; (e.target as HTMLElement).style.borderColor = '#d1d1d6'; }}
