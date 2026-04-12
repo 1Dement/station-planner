@@ -998,6 +998,21 @@ export default function SceneEditor() {
     checkAllCollisions();
   };
 
+  const clearAllObjects = () => {
+    if (objectsRef.current.length === 0) return;
+    saveSnapshot();
+    objectsRef.current.forEach(obj => {
+      sceneRef.current?.remove(obj.mesh);
+      obj.mesh.traverse(c => { if (c instanceof THREE.Mesh) { c.geometry.dispose(); if (c.material instanceof THREE.Material) c.material.dispose(); }});
+    });
+    objectsRef.current = [];
+    selectedRef.current = null;
+    setSelectedObj(null);
+    setObjectCount(0);
+    setCollisions([]);
+    setStatusMsg('Toate obiectele sterse');
+  };
+
   const rotateSelected = (deg: number) => {
     if (!selectedRef.current) return;
     saveSnapshot();
@@ -1560,7 +1575,7 @@ export default function SceneEditor() {
                   fontWeight: activeCategory === cat.id ? 600 : 400,
                 }}
               >
-                {cat.icon} {cat.name}
+                {cat.icon} {cat.name} ({getCatalogByCategory(cat.id).length})
               </button>
             ))}
           </div>
@@ -1646,6 +1661,7 @@ export default function SceneEditor() {
             <div className="w-px h-4 mx-0.5" style={{ background: '#e5e5ea' }} />
             <button onClick={duplicateSelected} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>Duplica</button>
             <button onClick={deleteSelected} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#ff3b30' }}>Sterge</button>
+            <button onClick={clearAllObjects} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#ff3b30' }} title="Sterge toate obiectele">X Tot</button>
             <div className="w-px h-4 mx-0.5" style={{ background: '#e5e5ea' }} />
             <button onClick={resetCamera} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>3D</button>
             <button onClick={topView} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>2D</button>
