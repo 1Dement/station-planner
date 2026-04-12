@@ -58,6 +58,7 @@ export default function SceneEditor() {
   const [selectedObj, setSelectedObj] = useState<PlacedObject | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('shelving');
   const [showCatalog, setShowCatalog] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [collisions, setCollisions] = useState<string[]>([]);
   const [objectCount, setObjectCount] = useState(0);
   const [statusMsg, setStatusMsg] = useState('Gata de lucru');
@@ -1587,6 +1588,18 @@ export default function SceneEditor() {
             </label>
           </div>
 
+          {/* Search */}
+          <div className="px-3 py-2" style={{ borderBottom: '1px solid #e5e5ea' }}>
+            <input
+              type="text"
+              placeholder="Cauta echipament..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full text-xs px-3 py-2 rounded-lg outline-none"
+              style={{ background: '#f5f5f7', border: '1px solid #e5e5ea', color: '#1d1d1f' }}
+            />
+          </div>
+
           {/* Categories */}
           <div className="flex flex-wrap gap-1 px-3 py-2.5" style={{ borderBottom: '1px solid #e5e5ea' }}>
             {CATEGORIES.map(cat => (
@@ -1607,7 +1620,7 @@ export default function SceneEditor() {
 
           {/* Catalog items */}
           <div className="flex-1 overflow-y-auto px-3 py-2">
-            {getCatalogByCategory(activeCategory).map(item => (
+            {(searchQuery.trim() ? CATALOG.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()) || i.description.toLowerCase().includes(searchQuery.toLowerCase())) : getCatalogByCategory(activeCategory)).map(item => (
               <button
                 key={item.id}
                 onClick={() => addObject(item)}
