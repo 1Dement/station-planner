@@ -748,6 +748,49 @@ function createFireHoseCabinet(w: number, h: number, d: number): THREE.Group {
   return group;
 }
 
+// === MOP BUCKET ===
+function createMopBucket(w: number, h: number, d: number): THREE.Group {
+  const group = new THREE.Group();
+  const bucketMat = new THREE.MeshStandardMaterial({ color: 0xff8c00, roughness: 0.5, metalness: 0.1 });
+  // Bucket body (tapered)
+  group.add(new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2 - 0.04, h * 0.55, 12), bucketMat).translateY(h * 0.275));
+  // Wringer attachment
+  group.add(box(w * 0.35, h * 0.15, d * 0.5, brushedMetal, w * 0.15, h * 0.55, 0));
+  // Handle
+  group.add(cyl(0.01, h * 0.3, brushedMetal, 0, h * 0.7, -d * 0.3));
+  // Mop stick (long vertical)
+  group.add(cyl(0.012, h * 0.5, new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.7 }), -w * 0.2, h * 0.7, 0));
+  // Wheels (4 casters)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      group.add(new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), darkMetal).translateX(sx * (w / 2 - 0.05)).translateY(0.02).translateZ(sz * (d / 2 - 0.05)));
+    }
+  }
+  return group;
+}
+
+// === WET FLOOR SIGN ===
+function createWetFloorSign(w: number, h: number, _d: number): THREE.Group {
+  const group = new THREE.Group();
+  const signMat = new THREE.MeshStandardMaterial({ color: 0xffdd00, roughness: 0.5, metalness: 0.1 });
+  // A-frame shape (two angled panels)
+  const panelGeo = new THREE.BoxGeometry(w, h, 0.02);
+  const p1 = new THREE.Mesh(panelGeo, signMat);
+  p1.position.set(0, h * 0.45, 0.06);
+  p1.rotation.x = -0.15;
+  p1.castShadow = true;
+  group.add(p1);
+  const p2 = new THREE.Mesh(panelGeo, signMat);
+  p2.position.set(0, h * 0.45, -0.06);
+  p2.rotation.x = 0.15;
+  p2.castShadow = true;
+  group.add(p2);
+  // Warning icon stripe (darker)
+  const warnMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 });
+  group.add(box(w * 0.4, h * 0.15, 0.005, warnMat, 0, h * 0.5, 0.075));
+  return group;
+}
+
 // === GENERIC BOX (better fallback) ===
 function createGenericBox(w: number, h: number, d: number, color: string): THREE.Group {
   const group = new THREE.Group();
@@ -835,6 +878,8 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
 
   // Cleaning
   if (id === 'hand-sanitizer') return createSanitizerStand(w, h, d);
+  if (id === 'mop-bucket') return createMopBucket(w, h, d);
+  if (id === 'wet-floor-sign') return createWetFloorSign(w, h, d);
 
   // Lighting
   if (id.includes('ceiling-panel') || id === 'shelf-light-strip') return createCeilingPanel(w, h, d);
