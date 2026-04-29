@@ -17,3 +17,4 @@ timestamp	experiment	hypothesis	score	status
 2026-04-29T11:05:04+03:00	exp3-5-ifc-walls	Full IFC + behavior + edges in one combined exp lifts B2/B6/B7/B10 caps	91	KEEP	100	82
 2026-04-29T11:06:15+03:00	exp6-8-snap-modes	5 paired snap consts+fns lifts B5 0-10	96	KEEP	100	92
 2026-04-29T11:07:32+03:00	exp9-10-backdrop-camera	Backdrop helper + 2D camera mode lifts B4 to 8 + B8 to 6	100	KEEP	100	100
+2026-04-29T11:22:01+03:00	phase2-ui-wired	Wall draw tool wired in SceneEditor: toolbar, mouse handlers, render, IFC download, PGW import	100	KEEP	100	100

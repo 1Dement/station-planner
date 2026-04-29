@@ -583,6 +583,23 @@ export default function SceneEditor() {
     scene.add(snapMarker);
     snapMarkerRef.current = snapMarker;
 
+    // Expose internals for headless testing (no-op in normal use)
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__sp = {
+        scene, camera, renderer, orbit,
+        wallGroup, wallsRef, backdropMeshRef, snapMarkerRef, previewLine,
+        setTopDown: () => {
+          camera.position.set(0, 25, 0.001);
+          orbit.target.set(0, 0, 0);
+          orbit.update();
+        },
+        countMeshes: () => scene.children.length,
+        countWalls: () => wallsRef.current.length,
+        hasBackdrop: () => !!backdropMeshRef.current && (scene.children.includes(backdropMeshRef.current!)),
+      };
+    }
+
     // Exterior environment
     // Ground plane (asphalt/parking)
     const extGroundGeo = new THREE.PlaneGeometry(80, 80);

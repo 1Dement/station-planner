@@ -43,7 +43,8 @@ export function placeBackdropFromPGW(
   const mesh = new THREE.Mesh(geometry, material);
   // Lay flat (Y is up in Three.js), slightly below ground to render under walls
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set(0, -0.001, 0);
+  // Render slightly above floor so the texture is visible (existing scene has floor at Y=0)
+  mesh.position.set(0, 0.01, 0);
   mesh.userData.isBackdrop = true;
   mesh.userData.worldOffset = worldOffset;
   mesh.userData.pgw = pgw;
