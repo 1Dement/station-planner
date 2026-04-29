@@ -33,6 +33,9 @@ export default function SceneEditor() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const orthoCameraRef = useRef<THREE.OrthographicCamera | null>(null);
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
+  const togglePlanView = () => setViewMode((m) => (m === '3d' ? '2d' : '3d'));
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const composerRef = useRef<any>(null);
