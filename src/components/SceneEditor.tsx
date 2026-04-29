@@ -15,6 +15,13 @@ import {
   checkCollision, getDistance, exportLayout
 } from '@/lib/scene-objects';
 import { loadBuildingIntoScene, snapToWall, WallSegment, DoorPanel } from '@/lib/building-loader';
+import type { Wall } from '@/lib/wall-tool';
+import { DEFAULT_WALL_STYLE } from '@/lib/wall-tool';
+import { snap as snapPoint, SNAP_ENDPOINT, SNAP_MIDPOINT, SNAP_GRID } from '@/lib/wall-snap';
+import { exportToIFC } from '@/lib/ifc-export';
+import { loadPGW } from '@/lib/pgw-loader';
+import { placeBackdropFromPGW } from '@/lib/backdrop';
+import { createWallMesh, updateWallGroup, createPreviewLine, setPreviewLine, createSnapMarker } from '@/lib/wall-renderer';
 
 const DEFAULT_ROOM_WIDTH = 12;
 const DEFAULT_ROOM_DEPTH = 8;
@@ -57,6 +64,119 @@ export default function SceneEditor() {
   const mouseDownPosRef = useRef(new THREE.Vector2());
   // Door toggle (click to open/close)
   const snapLinesRef = useRef<THREE.Group | null>(null);
+
+  // Wall drawing state + refs
+  const [currentTool, setCurrentTool] = useState<'select' | 'wall'>('select');
+  const currentToolRef = useRef<'select' | 'wall'>('select');
+  const wallsRef = useRef<Wall[]>([]);
+  const [wallCount, setWallCount] = useState(0);
+  const wallGroupRef = useRef<THREE.Group | null>(null);
+  const wallPreviewLineRef = useRef<THREE.Line | null>(null);
+  const wallStartPtRef = useRef<{ x: number; y: number } | null>(null);
+  const snapMarkerRef = useRef<THREE.Mesh | null>(null);
+  const backdropMeshRef = useRef<THREE.Mesh | null>(null);
+  const [wallThickness, setWallThickness] = useState(0.25);
+  const [wallHeight, setWallHeight] = useState(3.0);
+  const [drawHint, setDrawHint] = useState<string>('');
+
+  useEffect(() => { currentToolRef.current = currentTool; }, [currentTool]);
+
+  // Re-render walls when viewMode changes (2D ribbon vs 3D extrude)
+  useEffect(() => {
+    if (wallGroupRef.current) {
+      updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode);
+    }
+  }, [viewMode]);
+
+  // ESC to cancel wall drawing
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (wallStartPtRef.current) {
+          wallStartPtRef.current = null;
+          setDrawHint('');
+          if (wallPreviewLineRef.current) wallPreviewLineRef.current.visible = false;
+          if (snapMarkerRef.current) snapMarkerRef.current.visible = false;
+        }
+        if (currentToolRef.current === 'wall') {
+          setCurrentTool('select');
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Wall draw tool actions
+  const handleToggleWallTool = () => {
+    if (currentTool === 'wall') {
+      setCurrentTool('select');
+      wallStartPtRef.current = null;
+      setDrawHint('');
+      if (wallPreviewLineRef.current) wallPreviewLineRef.current.visible = false;
+      if (snapMarkerRef.current) snapMarkerRef.current.visible = false;
+    } else {
+      setCurrentTool('wall');
+      setDrawHint('Click pt punct start | ESC = iesi');
+    }
+  };
+
+  const handleClearWalls = () => {
+    if (!confirm(`Sterg ${wallsRef.current.length} pereti?`)) return;
+    wallsRef.current = [];
+    setWallCount(0);
+    if (wallGroupRef.current) updateWallGroup(wallGroupRef.current, [], viewMode);
+  };
+
+  const handleExportIFC = () => {
+    if (wallsRef.current.length === 0) {
+      alert('Niciun perete de exportat. Foloseste tool Perete intai.');
+      return;
+    }
+    const ifc = exportToIFC(wallsRef.current, {
+      projectName: 'Station Planner Layout',
+      buildingName: 'Statie',
+    });
+    const blob = new Blob([ifc], { type: 'application/x-step' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `station-${Date.now()}.ifc`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatusMsg(`IFC exportat: ${wallsRef.current.length} pereti, ${ifc.length} bytes`);
+  };
+
+  const handleLoadBackdrop = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length < 1) return;
+    const pngFile = Array.from(files).find(f => /\.(png|jpg|jpeg)$/i.test(f.name));
+    const pgwFile = Array.from(files).find(f => /\.(pgw|wld|jgw)$/i.test(f.name));
+    if (!pngFile) { alert('Selecteaza si fisier PNG/JPG.'); return; }
+    if (!pgwFile) { alert('Selecteaza si fisier PGW/JGW/WLD.'); return; }
+    const pngUrl = URL.createObjectURL(pngFile);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const pgw = loadPGW(String(reader.result));
+        const loader = new THREE.TextureLoader();
+        loader.load(pngUrl, (texture) => {
+          if (!sceneRef.current) return;
+          // Get image dims from texture
+          const img = texture.image as HTMLImageElement;
+          const placement = placeBackdropFromPGW(texture, img.width, img.height, pgw, 0.65);
+          // Remove previous backdrop
+          if (backdropMeshRef.current) sceneRef.current.remove(backdropMeshRef.current);
+          sceneRef.current.add(placement.mesh);
+          backdropMeshRef.current = placement.mesh;
+          setStatusMsg(`Backdrop ${img.width}x${img.height} px = ${placement.widthMeters.toFixed(1)}x${placement.heightMeters.toFixed(1)} m`);
+        });
+      } catch (err) {
+        alert(`Eroare PGW: ${(err as Error).message}`);
+      }
+    };
+    reader.readAsText(pgwFile);
+  };
 
   const [selectedObj, setSelectedObj] = useState<PlacedObject | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('shelving');
@@ -449,6 +569,20 @@ export default function SceneEditor() {
     gridHelper.position.y = 0.005;
     scene.add(gridHelper);
 
+    // Wall drawing primitives
+    const wallGroup = new THREE.Group();
+    wallGroup.name = 'user-walls';
+    scene.add(wallGroup);
+    wallGroupRef.current = wallGroup;
+
+    const previewLine = createPreviewLine();
+    scene.add(previewLine);
+    wallPreviewLineRef.current = previewLine;
+
+    const snapMarker = createSnapMarker();
+    scene.add(snapMarker);
+    snapMarkerRef.current = snapMarker;
+
     // Exterior environment
     // Ground plane (asphalt/parking)
     const extGroundGeo = new THREE.PlaneGeometry(80, 80);
@@ -769,6 +903,55 @@ export default function SceneEditor() {
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       if (fpModeRef.current) return;
+
+      // Wall draw tool — captures clicks regardless of orbit edit mode
+      if (currentToolRef.current === 'wall') {
+        const fp = getFloorIntersection(e.clientX, e.clientY);
+        if (!fp) return;
+        // Convert Three.js (X, _, -Y_plan) → plan (X, Y_plan)
+        let candidate = { x: fp.x, y: -fp.z };
+        // Snap
+        const segs = wallsRef.current.map(w => ({ start: w.start, end: w.end }));
+        const hit = snapPoint(candidate, segs, new Set([SNAP_ENDPOINT, SNAP_MIDPOINT, SNAP_GRID]), 0.4);
+        if (hit) candidate = hit.point;
+
+        if (!wallStartPtRef.current) {
+          // First click — capture start
+          wallStartPtRef.current = candidate;
+          setDrawHint(`Click 2 pt punct final | ESC = anuleaza`);
+        } else {
+          // Second click — finalize wall
+          const start = wallStartPtRef.current;
+          const end = candidate;
+          if (Math.hypot(end.x - start.x, end.y - start.y) > 0.05) {
+            const id = `w-${Date.now()}-${wallsRef.current.length}`;
+            const wall: Wall = {
+              id,
+              start: { ...start },
+              end: { ...end },
+              thickness: wallThickness,
+              height: wallHeight,
+              style: DEFAULT_WALL_STYLE,
+              vertices: [`${id}-v1`, `${id}-v2`],
+              holes: [],
+            };
+            wallsRef.current = [...wallsRef.current, wall];
+            setWallCount(wallsRef.current.length);
+            // Re-render walls
+            if (wallGroupRef.current) {
+              updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode);
+            }
+            // Chain mode — start of next wall = end of this one
+            wallStartPtRef.current = { ...end };
+            setDrawHint(`Perete adaugat (${wallsRef.current.length}) | continua sau ESC`);
+          }
+        }
+        if (wallPreviewLineRef.current && wallStartPtRef.current) {
+          setPreviewLine(wallPreviewLineRef.current, wallStartPtRef.current, wallStartPtRef.current);
+        }
+        return;
+      }
+
       if (!orbitEditRef.current) return; // No interaction in non-edit mode
       mouseDownPosRef.current.set(e.clientX, e.clientY);
 
@@ -803,6 +986,34 @@ export default function SceneEditor() {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (fpModeRef.current) return;
+
+      // Wall draw tool — update preview + snap marker
+      if (currentToolRef.current === 'wall') {
+        el.style.cursor = 'crosshair';
+        const fp = getFloorIntersection(e.clientX, e.clientY);
+        if (!fp) return;
+        let cur = { x: fp.x, y: -fp.z };
+        const segs = wallsRef.current.map(w => ({ start: w.start, end: w.end }));
+        const hit = snapPoint(cur, segs, new Set([SNAP_ENDPOINT, SNAP_MIDPOINT, SNAP_GRID]), 0.4);
+        if (snapMarkerRef.current) {
+          if (hit) {
+            cur = hit.point;
+            snapMarkerRef.current.position.set(hit.point.x, 0.03, -hit.point.y);
+            snapMarkerRef.current.visible = true;
+          } else {
+            snapMarkerRef.current.visible = false;
+          }
+        }
+        if (wallStartPtRef.current && wallPreviewLineRef.current) {
+          setPreviewLine(wallPreviewLineRef.current, wallStartPtRef.current, cur);
+          const dx = cur.x - wallStartPtRef.current.x;
+          const dy = cur.y - wallStartPtRef.current.y;
+          const len = Math.hypot(dx, dy);
+          setDrawHint(`Lungime: ${(len * 100).toFixed(0)} cm | click pt punct final | ESC anuleaza`);
+        }
+        return;
+      }
+
       if (!orbitEditRef.current) return;
 
       if (!isDraggingRef.current || !selectedRef.current) {
@@ -1690,6 +1901,66 @@ export default function SceneEditor() {
           >
             {showCatalog ? '\u25C0' : '\u25B6'}
           </button>
+        )}
+
+        {/* Wall toolbar (top-right) */}
+        {!fpMode && (
+          <div className="absolute top-3 right-3 z-20 flex flex-col gap-2 p-3 rounded-xl" style={{ background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', border: '1px solid #e5e5ea', minWidth: 260 }}>
+            <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#86868b' }}>Pereti & IFC</div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleToggleWallTool}
+                className="flex-1 text-xs py-2 px-3 rounded-lg font-medium transition-all"
+                style={{ background: currentTool === 'wall' ? '#0071e3' : '#f5f5f7', color: currentTool === 'wall' ? '#fff' : '#1d1d1f', border: currentTool === 'wall' ? 'none' : '1px solid #d1d1d6' }}
+              >
+                {currentTool === 'wall' ? 'Iesi mod perete' : 'Deseneaza perete'}
+              </button>
+              <button
+                onClick={togglePlanView}
+                title={`View: ${viewMode}`}
+                className="text-xs py-2 px-3 rounded-lg font-medium transition-all"
+                style={{ background: viewMode === '2d' ? '#30d158' : '#f5f5f7', color: viewMode === '2d' ? '#fff' : '#1d1d1f', border: viewMode === '2d' ? 'none' : '1px solid #d1d1d6' }}
+              >
+                {viewMode === '2d' ? '2D' : '3D'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-[11px]" style={{ color: '#1d1d1f' }}>
+              <label className="flex items-center gap-1">
+                Grosime:
+                <input type="number" step="0.05" min="0.05" max="0.5" value={wallThickness}
+                  onChange={e => setWallThickness(parseFloat(e.target.value) || 0.25)}
+                  className="w-14 px-1.5 py-1 rounded text-[11px]"
+                  style={{ background: '#f5f5f7', border: '1px solid #d1d1d6' }} />m
+              </label>
+              <label className="flex items-center gap-1">
+                Inaltime:
+                <input type="number" step="0.1" min="0.5" max="6" value={wallHeight}
+                  onChange={e => setWallHeight(parseFloat(e.target.value) || 3)}
+                  className="w-14 px-1.5 py-1 rounded text-[11px]"
+                  style={{ background: '#f5f5f7', border: '1px solid #d1d1d6' }} />m
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleClearWalls} disabled={wallCount === 0}
+                className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-all"
+                style={{ background: wallCount === 0 ? '#f5f5f7' : '#ff453a', color: wallCount === 0 ? '#86868b' : '#fff', border: 'none', cursor: wallCount === 0 ? 'not-allowed' : 'pointer' }}>
+                Sterge tot
+              </button>
+              <button onClick={handleExportIFC} disabled={wallCount === 0}
+                className="flex-1 text-[11px] py-1.5 rounded-lg font-medium transition-all"
+                style={{ background: wallCount === 0 ? '#f5f5f7' : '#0071e3', color: wallCount === 0 ? '#86868b' : '#fff', border: 'none', cursor: wallCount === 0 ? 'not-allowed' : 'pointer' }}>
+                Export IFC
+              </button>
+            </div>
+            <label className="text-[11px] py-1.5 px-2 rounded-lg text-center cursor-pointer transition-all hover:opacity-80" style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}>
+              Incarca PNG + PGW (georef)
+              <input type="file" accept=".png,.jpg,.jpeg,.pgw,.jgw,.wld" multiple onChange={handleLoadBackdrop} className="hidden" />
+            </label>
+            <div className="text-[11px]" style={{ color: '#86868b' }}>
+              Pereti: <span style={{ color: '#1d1d1f', fontWeight: 600 }}>{wallCount}</span>
+              {drawHint && <div style={{ marginTop: 4, color: '#0071e3' }}>{drawHint}</div>}
+            </div>
+          </div>
         )}
 
         {/* ORBIT MODE toolbar */}
