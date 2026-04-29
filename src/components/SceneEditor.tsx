@@ -15,8 +15,8 @@ import {
   checkCollision, getDistance, exportLayout
 } from '@/lib/scene-objects';
 import { loadBuildingIntoScene, snapToWall, WallSegment, DoorPanel } from '@/lib/building-loader';
-import type { Wall } from '@/lib/wall-tool';
-import { DEFAULT_WALL_STYLE } from '@/lib/wall-tool';
+import type { Wall, Hole } from '@/lib/wall-tool';
+import { DEFAULT_WALL_STYLE, DEFAULT_DOOR, DEFAULT_WINDOW, findNearestWall } from '@/lib/wall-tool';
 import { snap as snapPoint, SNAP_ENDPOINT, SNAP_MIDPOINT, SNAP_GRID } from '@/lib/wall-snap';
 import { exportToIFC } from '@/lib/ifc-export';
 import { loadPGW } from '@/lib/pgw-loader';
@@ -66,10 +66,13 @@ export default function SceneEditor() {
   const snapLinesRef = useRef<THREE.Group | null>(null);
 
   // Wall drawing state + refs
-  const [currentTool, setCurrentTool] = useState<'select' | 'wall'>('select');
-  const currentToolRef = useRef<'select' | 'wall'>('select');
+  type Tool = 'select' | 'wall' | 'door' | 'window';
+  const [currentTool, setCurrentTool] = useState<Tool>('select');
+  const currentToolRef = useRef<Tool>('select');
   const wallsRef = useRef<Wall[]>([]);
+  const holesRef = useRef<Hole[]>([]);
   const [wallCount, setWallCount] = useState(0);
+  const [holeCount, setHoleCount] = useState(0);
   const wallGroupRef = useRef<THREE.Group | null>(null);
   const wallPreviewLineRef = useRef<THREE.Line | null>(null);
   const wallStartPtRef = useRef<{ x: number; y: number } | null>(null);
@@ -84,22 +87,22 @@ export default function SceneEditor() {
   // Re-render walls when viewMode changes (2D ribbon vs 3D extrude)
   useEffect(() => {
     if (wallGroupRef.current) {
-      updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode);
+      updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode, null, holesRef.current);
     }
   }, [viewMode]);
 
-  // ESC to cancel wall drawing
+  // ESC to cancel wall/door/window drawing
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (wallStartPtRef.current) {
           wallStartPtRef.current = null;
-          setDrawHint('');
           if (wallPreviewLineRef.current) wallPreviewLineRef.current.visible = false;
           if (snapMarkerRef.current) snapMarkerRef.current.visible = false;
         }
-        if (currentToolRef.current === 'wall') {
+        if (currentToolRef.current !== 'select') {
           setCurrentTool('select');
+          setDrawHint('');
         }
       }
     };
@@ -117,7 +120,28 @@ export default function SceneEditor() {
       if (snapMarkerRef.current) snapMarkerRef.current.visible = false;
     } else {
       setCurrentTool('wall');
+      wallStartPtRef.current = null;
       setDrawHint('Click pt punct start | ESC = iesi');
+    }
+  };
+
+  const handleToggleDoorTool = () => {
+    if (currentTool === 'door') {
+      setCurrentTool('select');
+      setDrawHint('');
+    } else {
+      setCurrentTool('door');
+      setDrawHint('Click pe perete pt usa (90x210cm) | ESC = iesi');
+    }
+  };
+
+  const handleToggleWindowTool = () => {
+    if (currentTool === 'window') {
+      setCurrentTool('select');
+      setDrawHint('');
+    } else {
+      setCurrentTool('window');
+      setDrawHint('Click pe perete pt geam (120x140cm @ 90cm) | ESC = iesi');
     }
   };
 
@@ -125,7 +149,9 @@ export default function SceneEditor() {
     if (!confirm(`Sterg ${wallsRef.current.length} pereti?`)) return;
     wallsRef.current = [];
     setWallCount(0);
-    if (wallGroupRef.current) updateWallGroup(wallGroupRef.current, [], viewMode);
+    if (wallGroupRef.current) updateWallGroup(wallGroupRef.current, [], viewMode, null, []);
+    holesRef.current = [];
+    setHoleCount(0);
   };
 
   const handleExportIFC = () => {
@@ -136,6 +162,7 @@ export default function SceneEditor() {
     const ifc = exportToIFC(wallsRef.current, {
       projectName: 'Station Planner Layout',
       buildingName: 'Statie',
+      holes: holesRef.current,
     });
     const blob = new Blob([ifc], { type: 'application/x-step' });
     const url = URL.createObjectURL(blob);
@@ -588,14 +615,15 @@ export default function SceneEditor() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__sp = {
         scene, camera, renderer, orbit,
-        wallGroup, wallsRef, backdropMeshRef, snapMarkerRef, previewLine,
-        setTopDown: () => {
-          camera.position.set(0, 25, 0.001);
+        wallGroup, wallsRef, holesRef, backdropMeshRef, snapMarkerRef, previewLine,
+        setTopDown: (alt = 25) => {
+          camera.position.set(0, alt, 0.001);
           orbit.target.set(0, 0, 0);
           orbit.update();
         },
         countMeshes: () => scene.children.length,
         countWalls: () => wallsRef.current.length,
+        countHoles: () => holesRef.current.length,
         hasBackdrop: () => !!backdropMeshRef.current && (scene.children.includes(backdropMeshRef.current!)),
       };
     }
@@ -921,6 +949,47 @@ export default function SceneEditor() {
       if (e.button !== 0) return;
       if (fpModeRef.current) return;
 
+      // Door / Window placement — click on a wall to add opening
+      if (currentToolRef.current === 'door' || currentToolRef.current === 'window') {
+        const fp = getFloorIntersection(e.clientX, e.clientY);
+        if (!fp) return;
+        const click = { x: fp.x, y: -fp.z };
+        const hit = findNearestWall(wallsRef.current, click, 0.6);
+        if (!hit) {
+          setDrawHint('Click EXACT pe perete (toleranta 60cm)');
+          return;
+        }
+        const isDoor = currentToolRef.current === 'door';
+        const tmpl = isDoor ? DEFAULT_DOOR : DEFAULT_WINDOW;
+        const w = tmpl.width;
+        // Center the opening at the click (offset is from wall start)
+        let offset = hit.offset - w / 2;
+        const wallLen = Math.hypot(hit.wall.end.x - hit.wall.start.x, hit.wall.end.y - hit.wall.start.y);
+        offset = Math.max(0.05, Math.min(wallLen - w - 0.05, offset));
+        if (wallLen < w + 0.1) {
+          setDrawHint(`Perete prea scurt (${wallLen.toFixed(2)}m) pt ${isDoor ? 'usa' : 'geam'} ${w}m`);
+          return;
+        }
+        const id = `h-${Date.now()}-${holesRef.current.length}`;
+        const hole: Hole = {
+          id,
+          wallId: hit.wall.id,
+          kind: tmpl.kind,
+          offset,
+          width: w,
+          height: tmpl.height,
+          sillHeight: tmpl.sillHeight,
+        };
+        holesRef.current = [...holesRef.current, hole];
+        setHoleCount(holesRef.current.length);
+        // Re-render all walls to include new hole
+        if (wallGroupRef.current) {
+          updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode, null, holesRef.current);
+        }
+        setDrawHint(`${isDoor ? 'Usa' : 'Geam'} adaugat (${holesRef.current.length}) | continua sau ESC`);
+        return;
+      }
+
       // Wall draw tool — captures clicks regardless of orbit edit mode
       if (currentToolRef.current === 'wall') {
         const fp = getFloorIntersection(e.clientX, e.clientY);
@@ -956,7 +1025,7 @@ export default function SceneEditor() {
             setWallCount(wallsRef.current.length);
             // Re-render walls
             if (wallGroupRef.current) {
-              updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode);
+              updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode, null, holesRef.current);
             }
             // Chain mode — start of next wall = end of this one
             wallStartPtRef.current = { ...end };
@@ -1930,7 +1999,21 @@ export default function SceneEditor() {
                 className="flex-1 text-xs py-2 px-3 rounded-lg font-medium transition-all"
                 style={{ background: currentTool === 'wall' ? '#0071e3' : '#f5f5f7', color: currentTool === 'wall' ? '#fff' : '#1d1d1f', border: currentTool === 'wall' ? 'none' : '1px solid #d1d1d6' }}
               >
-                {currentTool === 'wall' ? 'Iesi mod perete' : 'Deseneaza perete'}
+                {currentTool === 'wall' ? 'Iesi perete' : 'Perete'}
+              </button>
+              <button
+                onClick={handleToggleDoorTool}
+                className="text-xs py-2 px-3 rounded-lg font-medium transition-all"
+                style={{ background: currentTool === 'door' ? '#c97800' : '#f5f5f7', color: currentTool === 'door' ? '#fff' : '#1d1d1f', border: currentTool === 'door' ? 'none' : '1px solid #d1d1d6' }}
+              >
+                Usa
+              </button>
+              <button
+                onClick={handleToggleWindowTool}
+                className="text-xs py-2 px-3 rounded-lg font-medium transition-all"
+                style={{ background: currentTool === 'window' ? '#0099cc' : '#f5f5f7', color: currentTool === 'window' ? '#fff' : '#1d1d1f', border: currentTool === 'window' ? 'none' : '1px solid #d1d1d6' }}
+              >
+                Geam
               </button>
               <button
                 onClick={togglePlanView}
@@ -1975,6 +2058,7 @@ export default function SceneEditor() {
             </label>
             <div className="text-[11px]" style={{ color: '#86868b' }}>
               Pereti: <span style={{ color: '#1d1d1f', fontWeight: 600 }}>{wallCount}</span>
+              {' | '}Deschideri: <span style={{ color: '#1d1d1f', fontWeight: 600 }}>{holeCount}</span>
               {drawHint && <div style={{ marginTop: 4, color: '#0071e3' }}>{drawHint}</div>}
             </div>
           </div>

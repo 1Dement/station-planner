@@ -1,5 +1,5 @@
 import type { Vec2 } from './vec2';
-import type { Wall } from './wall-tool';
+import type { Wall, Hole } from './wall-tool';
 
 export interface IFCExportOptions {
   projectName?: string;
@@ -11,6 +11,7 @@ export interface IFCExportOptions {
   georefOriginY?: number;
   projectedCRS?: string;
   application?: string;
+  holes?: Hole[];
 }
 
 interface MockWall {
@@ -48,6 +49,7 @@ export function exportToIFC(walls: WallInput[], options: IFCExportOptions = {}):
     storeyElevation: options.storeyElevation ?? 0,
     georefOriginX: options.georefOriginX ?? 0,
     georefOriginY: options.georefOriginY ?? 0,
+    holes: options.holes ?? [],
     projectedCRS: options.projectedCRS ?? 'EPSG:3844',
     application: options.application ?? 'Station Planner',
   };
@@ -146,8 +148,11 @@ export function exportToIFC(walls: WallInput[], options: IFCExportOptions = {}):
   const materialLayerSetId = id++;
   lines.push(`#${materialLayerSetId} = IFCMATERIALLAYERSET((${ref(materialLayerId)}),'Wall25cm',$);`);
 
-  // Walls
+  // Walls + openings (doors/windows)
   const wallIds: number[] = [];
+  const openingProductIds: number[] = []; // door/window IDs to add to spatial container
+  const wallIdMap = new Map<string, { ifcId: number; placement: number; ang: number; len: number; height: number }>();
+
   for (const w of walls) {
     const dx = w.end.x - w.start.x;
     const dy = w.end.y - w.start.y;
@@ -189,17 +194,92 @@ export function exportToIFC(walls: WallInput[], options: IFCExportOptions = {}):
     const wallId = id++;
     lines.push(`#${wallId} = IFCWALLSTANDARDCASE('${makeGuid(wallId)}',${ref(ownerHistId)},'Wall ${wallIds.length + 1}',$,$,${ref(wpPlacement)},${ref(productShapeId)},$,$);`);
     wallIds.push(wallId);
+    if ((w as Wall).id) {
+      wallIdMap.set((w as Wall).id, { ifcId: wallId, placement: wpPlacement, ang, len, height: h });
+    }
 
     // Material association
     const relMatId = id++;
     lines.push(`#${relMatId} = IFCRELASSOCIATESMATERIAL('${makeGuid(relMatId)}',${ref(ownerHistId)},$,$,(${ref(wallId)}),${ref(materialLayerSetId)});`);
   }
 
-  // Contain walls in storey
-  if (wallIds.length > 0) {
+  // ─── DOORS / WINDOWS ────────────────────────────────────────────────────
+  for (const hole of opts.holes) {
+    const wallInfo = wallIdMap.get(hole.wallId);
+    if (!wallInfo) continue;
+    if (hole.offset < 0 || hole.offset + hole.width > wallInfo.len + 1e-6) continue;
+
+    const opCenterAlongWall = hole.offset + hole.width / 2;
+    const sill = hole.sillHeight;
+    const opH = hole.height;
+
+    // Opening placement: relative to wall's IfcLocalPlacement
+    // Wall axis is along local +X (we set wpDirX to (cosA, sinA)). So in wall-local coords,
+    // opening center is at (opCenterAlongWall, 0, sill + opH/2).
+    const opOriginPt = id++;
+    lines.push(`#${opOriginPt} = IFCCARTESIANPOINT((${opCenterAlongWall.toFixed(6)},0.,0.));`);
+    const opDirZ = id++; lines.push(`#${opDirZ} = IFCDIRECTION((0.,0.,1.));`);
+    const opDirX = id++; lines.push(`#${opDirX} = IFCDIRECTION((1.,0.,0.));`);
+    const opAxis = id++;
+    lines.push(`#${opAxis} = IFCAXIS2PLACEMENT3D(${ref(opOriginPt)},${ref(opDirZ)},${ref(opDirX)});`);
+    const opPlacement = id++;
+    lines.push(`#${opPlacement} = IFCLOCALPLACEMENT(${ref(wallInfo.placement)},${ref(opAxis)});`);
+
+    // Opening profile: width × thickness extruded by opH starting at sill height
+    const opProfPos = id++;
+    const opProfOrigin = id++;
+    lines.push(`#${opProfOrigin} = IFCCARTESIANPOINT((0.,0.));`);
+    const opProfDir = id++; lines.push(`#${opProfDir} = IFCDIRECTION((1.,0.));`);
+    lines.push(`#${opProfPos} = IFCAXIS2PLACEMENT2D(${ref(opProfOrigin)},${ref(opProfDir)});`);
+    const opProfile = id++;
+    // Profile: width × (thickness + 0.05) so opening fully cuts through wall
+    const cutThickness = (walls.find(ww => (ww as Wall).id === hole.wallId)?.thickness ?? 0.25) + 0.05;
+    lines.push(`#${opProfile} = IFCRECTANGLEPROFILEDEF(.AREA.,'OpeningProfile',${ref(opProfPos)},${hole.width.toFixed(6)},${cutThickness.toFixed(6)});`);
+    // Extrusion solid: starting at sill (z=sill), extruded up by opH
+    const opSolidOrigin = id++;
+    lines.push(`#${opSolidOrigin} = IFCCARTESIANPOINT((0.,0.,${sill.toFixed(6)}));`);
+    const opSolidAxis = id++;
+    lines.push(`#${opSolidAxis} = IFCAXIS2PLACEMENT3D(${ref(opSolidOrigin)},${ref(opDirZ)},${ref(opDirX)});`);
+    const opExtrudeDir = id++;
+    lines.push(`#${opExtrudeDir} = IFCDIRECTION((0.,0.,1.));`);
+    const opSolid = id++;
+    lines.push(`#${opSolid} = IFCEXTRUDEDAREASOLID(${ref(opProfile)},${ref(opSolidAxis)},${ref(opExtrudeDir)},${opH.toFixed(6)});`);
+    const opShapeRep = id++;
+    lines.push(`#${opShapeRep} = IFCSHAPEREPRESENTATION(${ref(ctxId)},'Body','SweptSolid',(${ref(opSolid)}));`);
+    const opProductShape = id++;
+    lines.push(`#${opProductShape} = IFCPRODUCTDEFINITIONSHAPE($,$,(${ref(opShapeRep)}));`);
+
+    // IfcOpeningElement
+    const openingId = id++;
+    lines.push(`#${openingId} = IFCOPENINGELEMENT('${makeGuid(openingId)}',${ref(ownerHistId)},'Opening',$,$,${ref(opPlacement)},${ref(opProductShape)},$,.OPENING.);`);
+
+    // IfcRelVoidsElement: opening voids the wall
+    const relVoids = id++;
+    lines.push(`#${relVoids} = IFCRELVOIDSELEMENT('${makeGuid(relVoids)}',${ref(ownerHistId)},$,$,${ref(wallInfo.ifcId)},${ref(openingId)});`);
+
+    // The actual door/window product (sits inside the opening)
+    const productType = hole.kind === 'door' ? 'IFCDOOR' : 'IFCWINDOW';
+    const predefined = hole.kind === 'door' ? '.DOOR.' : '.WINDOW.';
+    const productId = id++;
+    // IFC4: IfcDoor(GlobalId, OwnerHistory, Name, Description, ObjectType, ObjectPlacement, Representation, Tag, OverallHeight, OverallWidth, PredefinedType, OperationType, UserDefinedOperationType)
+    if (hole.kind === 'door') {
+      lines.push(`#${productId} = IFCDOOR('${makeGuid(productId)}',${ref(ownerHistId)},'Door',$,$,${ref(opPlacement)},${ref(opProductShape)},$,${opH.toFixed(6)},${hole.width.toFixed(6)},.DOOR.,$,$);`);
+    } else {
+      lines.push(`#${productId} = IFCWINDOW('${makeGuid(productId)}',${ref(ownerHistId)},'Window',$,$,${ref(opPlacement)},${ref(opProductShape)},$,${opH.toFixed(6)},${hole.width.toFixed(6)},.WINDOW.,$,$);`);
+    }
+    openingProductIds.push(productId);
+
+    // IfcRelFillsElement: door/window fills the opening
+    const relFills = id++;
+    lines.push(`#${relFills} = IFCRELFILLSELEMENT('${makeGuid(relFills)}',${ref(ownerHistId)},$,$,${ref(openingId)},${ref(productId)});`);
+  }
+
+  // Contain walls + doors + windows in storey
+  const allContained = [...wallIds, ...openingProductIds];
+  if (allContained.length > 0) {
     const relContId = id++;
-    const wallRefs = wallIds.map(w => `#${w}`).join(',');
-    lines.push(`#${relContId} = IFCRELCONTAINEDINSPATIALSTRUCTURE('${makeGuid(relContId)}',${ref(ownerHistId)},$,$,(${wallRefs}),${ref(storeyId)});`);
+    const refs = allContained.map(w => `#${w}`).join(',');
+    lines.push(`#${relContId} = IFCRELCONTAINEDINSPATIALSTRUCTURE('${makeGuid(relContId)}',${ref(ownerHistId)},$,$,(${refs}),${ref(storeyId)});`);
   }
 
   lines.push('ENDSEC;');
