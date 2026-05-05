@@ -22,8 +22,10 @@ from pathlib import Path
 import ezdxf
 from ezdxf.entities import Hatch
 
-DXF = Path(r"C:\dev\station-planner\public\test-data\rlv\dxf_out\RLV_CURAT.dxf")
-OUT = Path(r"C:\dev\station-planner\src\lib\building-data.json")
+import sys
+DEFAULT_DXF = r"C:\dev\station-planner\public\test-data\rlveu\dxf_out\RLVEU_CURAT.dxf"
+DXF = Path(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_DXF)
+OUT = Path(sys.argv[2] if len(sys.argv) > 2 else r"C:\dev\station-planner\src\lib\building-data.json")
 
 
 def poly_area(pts: list[list[float]]) -> float:
