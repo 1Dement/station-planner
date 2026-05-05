@@ -1,0 +1,12 @@
+services:
+  station-planner:
+    build: .
+    container_name: station-planner
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    environment:
+      - TZ=Europe/Bucharest
+      - NODE_ENV=production
+      - PORT=3010
+      - HOSTNAME=0.0.0.0

@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+.git
+.gitignore
+test-out
+test-*.py
+*.log
+.DS_Store
+.vercel
+.env*

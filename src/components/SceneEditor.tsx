@@ -672,44 +672,6 @@ export default function SceneEditor() {
       scene.add(canopy);
     }
 
-    // Fuel pump islands (simple boxes)
-    const pumpMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 0.4, metalness: 0.3 });
-    const islandMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.7 });
-    for (let i = 0; i < 3; i++) {
-      const iz = bz - 8 - i * 5;
-      // Island base
-      const island = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 3.5), islandMat);
-      island.position.set(0, 0.075, iz);
-      island.receiveShadow = true;
-      scene.add(island);
-      // Pump
-      const pump = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.8, 0.4), pumpMat);
-      pump.position.set(0, 0.9 + 0.15, iz);
-      pump.castShadow = true;
-      scene.add(pump);
-      // Screen on pump
-      const scrMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x0a2040, emissiveIntensity: 0.1 });
-      const scr = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.01), scrMat);
-      scr.position.set(0, 1.5 + 0.15, iz + 0.21);
-      scene.add(scr);
-    }
-
-    // Canopy over pumps
-    const canopyRoofMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.3, metalness: 0.1 });
-    const canopyRoof = new THREE.Mesh(new THREE.BoxGeometry(8, 0.15, 18), canopyRoofMat);
-    canopyRoof.position.set(0, 4.5, bz - 13);
-    canopyRoof.castShadow = true;
-    canopyRoof.receiveShadow = true;
-    scene.add(canopyRoof);
-    // Canopy pillars
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 0.3, metalness: 0.2 });
-    for (const [px, pz] of [[-3.5, bz - 5], [3.5, bz - 5], [-3.5, bz - 21], [3.5, bz - 21]] as [number, number][]) {
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 4.5, 8), pillarMat);
-      pillar.position.set(px, 2.25, pz);
-      pillar.castShadow = true;
-      scene.add(pillar);
-    }
-
     // Snap indicator lines group
     const snapGroup = new THREE.Group();
     snapGroup.userData = { type: 'snapLines' };
