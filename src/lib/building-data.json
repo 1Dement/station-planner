@@ -887,7 +887,152 @@
   ],
   "hatchHoles": [],
   "objects": [],
-  "doors": [],
+  "doors": [
+    {
+      "x": 7.1053,
+      "z": -5.269,
+      "width": 1.112,
+      "startAngle": 180.0,
+      "endAngle": 274.5,
+      "hingeAngle": 180.0
+    },
+    {
+      "x": 7.1933,
+      "z": -7.4775,
+      "width": 1.1,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -2.6307,
+      "z": -3.2128,
+      "width": 0.9,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -7.1962,
+      "z": -6.6632,
+      "width": 0.9,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -7.1962,
+      "z": -9.2337,
+      "width": 0.9,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -6.8593,
+      "z": -1.7203,
+      "width": 0.9,
+      "startAngle": 0.0,
+      "endAngle": 90.0,
+      "hingeAngle": 0.0
+    },
+    {
+      "x": -6.0022,
+      "z": -4.0626,
+      "width": 0.857,
+      "startAngle": 180.0,
+      "endAngle": 248.9,
+      "hingeAngle": 180.0
+    },
+    {
+      "x": -4.9097,
+      "z": -3.9043,
+      "width": 0.9,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -6.9671,
+      "z": 4.2807,
+      "width": 0.9,
+      "startAngle": 0.0,
+      "endAngle": 90.0,
+      "hingeAngle": 0.0
+    },
+    {
+      "x": -4.8896,
+      "z": 4.2807,
+      "width": 0.8,
+      "startAngle": 0.0,
+      "endAngle": 90.0,
+      "hingeAngle": 0.0
+    },
+    {
+      "x": -5.1689,
+      "z": 3.1454,
+      "width": 0.902,
+      "startAngle": 86.7,
+      "endAngle": 180.0,
+      "hingeAngle": 86.7
+    },
+    {
+      "x": -2.4267,
+      "z": 4.2807,
+      "width": 0.8,
+      "startAngle": 0.0,
+      "endAngle": 90.0,
+      "hingeAngle": 0.0
+    },
+    {
+      "x": -0.0495,
+      "z": 5.1296,
+      "width": 0.9,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -0.0495,
+      "z": 3.1387,
+      "width": 0.9,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -7.1962,
+      "z": 9.1697,
+      "width": 0.9,
+      "startAngle": 180.0,
+      "endAngle": 270.0,
+      "hingeAngle": 180.0
+    },
+    {
+      "x": 0.9224,
+      "z": 9.4432,
+      "width": 0.9,
+      "startAngle": 0.0,
+      "endAngle": 90.0,
+      "hingeAngle": 0.0
+    },
+    {
+      "x": 2.7224,
+      "z": 9.4432,
+      "width": 0.9,
+      "startAngle": 90.0,
+      "endAngle": 180.0,
+      "hingeAngle": 90.0
+    },
+    {
+      "x": -5.5795,
+      "z": 2.3199,
+      "width": 0.9,
+      "startAngle": 270.0,
+      "endAngle": 0.0,
+      "hingeAngle": 270.0
+    }
+  ],
   "windows": [],
   "_meta": {
     "source": "RLVEU_CURAT.dxf",
@@ -908,6 +1053,7 @@
       "edgePaths": 11,
       "extraPolys": 0,
       "wallsOut": 9,
+      "doorsOut": 18,
       "hasHatchOuter": true
     }
   }

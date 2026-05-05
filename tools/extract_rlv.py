@@ -104,6 +104,18 @@ def main() -> None:
                 pts.append(list(pts[0]))
             extra_polys.append(pts)
 
+    # Doors = ARCs (door swings). center=hinge, radius=door width, start_angle=closed direction.
+    raw_doors: list[dict] = []
+    for a in msp.query("ARC"):
+        r = float(a.dxf.radius)
+        if not (0.4 <= r <= 1.6):
+            continue
+        cx0, cy0 = float(a.dxf.center[0]), float(a.dxf.center[1])
+        s_deg = float(a.dxf.start_angle) % 360.0
+        e_deg = float(a.dxf.end_angle) % 360.0
+        raw_doors.append({"x_raw": cx0, "y_raw": cy0, "width": round(r, 3),
+                          "startAngle": round(s_deg, 1), "endAngle": round(e_deg, 1)})
+
     all_polys = poly_paths + edge_paths + extra_polys
     if not all_polys:
         raise SystemExit("No CLADIRI_ACTIVE HATCH or closed polylines found")
@@ -120,6 +132,18 @@ def main() -> None:
     poly_paths = [center(p) for p in poly_paths]
     edge_paths = [center(p) for p in edge_paths]
     extra_polys = [center(p) for p in extra_polys]
+
+    doors = [
+        {
+            "x": round(d["x_raw"] - cx, 4),
+            "z": round(d["y_raw"] - cy, 4),
+            "width": d["width"],
+            "startAngle": d["startAngle"],
+            "endAngle": d["endAngle"],
+            "hingeAngle": d["startAngle"],
+        }
+        for d in raw_doors
+    ]
 
     # HATCH 1 polyline path = building exterior outline -> hatchOuter
     # HATCH 2 edge paths = interior wall stripes -> walls (each stripe is a thin closed poly)
@@ -141,7 +165,7 @@ def main() -> None:
         "hatchOuter": hatch_outer,
         "hatchHoles": hatch_holes,
         "objects": [],
-        "doors": [],
+        "doors": doors,
         "windows": [],
         "_meta": {
             "source": str(DXF.name),
@@ -159,6 +183,7 @@ def main() -> None:
                 "edgePaths": len(edge_paths),
                 "extraPolys": len(extra_polys),
                 "wallsOut": len(walls),
+                "doorsOut": len(doors),
                 "hasHatchOuter": hatch_outer is not None,
             },
         },
@@ -171,6 +196,7 @@ def main() -> None:
     print(f"  edge paths (HATCH edge loops): {len(edge_paths)}")
     print(f"  extra closed polys (layer 0): {len(extra_polys)}")
     print(f"  walls emitted: {len(walls)}")
+    print(f"  doors emitted (from ARCs): {len(doors)}")
     print(f"  hatchOuter: {'yes (' + str(len(hatch_outer)) + ' verts)' if hatch_outer else 'no'}")
     print(f"  bbox local: w={out['_meta']['extents']['widthM']}m h={out['_meta']['extents']['heightM']}m")
 
