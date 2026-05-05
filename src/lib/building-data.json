@@ -1033,7 +1033,72 @@
       "hingeAngle": 270.0
     }
   ],
-  "windows": [],
+  "windows": [
+    {
+      "x": -5.0514,
+      "z": 5.3964,
+      "width": 2.142,
+      "depth": 0.183,
+      "horizontal": 0,
+      "points": []
+    },
+    {
+      "x": -4.2274,
+      "z": -2.941,
+      "width": 1.433,
+      "depth": 0.21,
+      "horizontal": 0,
+      "points": []
+    },
+    {
+      "x": -7.2186,
+      "z": -7.6578,
+      "width": 1.355,
+      "depth": 0.134,
+      "horizontal": 0,
+      "points": []
+    },
+    {
+      "x": -0.013,
+      "z": 4.4304,
+      "width": 0.788,
+      "depth": 0.219,
+      "horizontal": 0,
+      "points": []
+    },
+    {
+      "x": -3.4423,
+      "z": 4.2583,
+      "width": 1.296,
+      "depth": 0.134,
+      "horizontal": 1,
+      "points": []
+    },
+    {
+      "x": -5.0193,
+      "z": -1.7317,
+      "width": 1.584,
+      "depth": 0.068,
+      "horizontal": 1,
+      "points": []
+    },
+    {
+      "x": -1.0545,
+      "z": 4.303,
+      "width": 0.94,
+      "depth": 0.134,
+      "horizontal": 1,
+      "points": []
+    },
+    {
+      "x": -6.4163,
+      "z": -3.9204,
+      "width": 0.858,
+      "depth": 0.097,
+      "horizontal": 1,
+      "points": []
+    }
+  ],
   "_meta": {
     "source": "RLVEU_CURAT.dxf",
     "originalCenterStereo70": [
@@ -1054,6 +1119,7 @@
       "extraPolys": 0,
       "wallsOut": 9,
       "doorsOut": 18,
+      "windowsOut": 8,
       "hasHatchOuter": true
     }
   }

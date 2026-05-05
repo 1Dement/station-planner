@@ -84,6 +84,86 @@ def hatch_paths(h: Hatch) -> list[tuple[str, list[list[float]]]]:
     return out
 
 
+def _detect_window_triplets(msp) -> list[dict]:
+    """Find groups of 3 parallel close-overlapping segments on layer 0 = window symbols."""
+    from collections import defaultdict
+    segs = []
+    for e in msp.query('LWPOLYLINE[layer=="0"]'):
+        pts = list(e.get_points("xy"))
+        if len(pts) != 2:
+            continue
+        s = (float(pts[0][0]), float(pts[0][1]))
+        en = (float(pts[1][0]), float(pts[1][1]))
+        L = math.hypot(en[0] - s[0], en[1] - s[1])
+        if L < 0.05:
+            continue
+        ang = math.atan2(en[1] - s[1], en[0] - s[0])
+        if ang < 0:
+            ang += math.pi
+        if ang >= math.pi:
+            ang -= math.pi
+        segs.append({"s": s, "e": en, "L": L, "ang": ang,
+                     "mx": (s[0] + en[0]) / 2, "my": (s[1] + en[1]) / 2})
+
+    def perp(a, b):
+        L = a["L"]
+        nx = -(a["e"][1] - a["s"][1]) / L
+        ny = (a["e"][0] - a["s"][0]) / L
+        return abs((b["mx"] - a["s"][0]) * nx + (b["my"] - a["s"][1]) * ny)
+
+    def overlap(a, b):
+        L = a["L"]
+        dx = (a["e"][0] - a["s"][0]) / L
+        dy = (a["e"][1] - a["s"][1]) / L
+        t1 = (b["s"][0] - a["s"][0]) * dx + (b["s"][1] - a["s"][1]) * dy
+        t2 = (b["e"][0] - a["s"][0]) * dx + (b["e"][1] - a["s"][1]) * dy
+        if t1 > t2:
+            t1, t2 = t2, t1
+        return max(0, min(L, t2) - max(0, t1))
+
+    buckets = defaultdict(list)
+    for sg in segs:
+        buckets[round(math.degrees(sg["ang"]) / 5) * 5].append(sg)
+
+    triplets = []
+    used = set()
+    for pool in buckets.values():
+        if len(pool) < 3:
+            continue
+        for a in sorted(pool, key=lambda c: -c["L"]):
+            if id(a) in used:
+                continue
+            partners = []
+            for b in pool:
+                if a is b or id(b) in used:
+                    continue
+                d = perp(a, b)
+                ov = overlap(a, b) / min(a["L"], b["L"])
+                if d < 0.25 and ov > 0.6:
+                    partners.append((d, b))
+            if len(partners) < 2:
+                continue
+            partners.sort(key=lambda x: x[0])
+            triple = [a, partners[0][1], partners[1][1]]
+            sorted_t = sorted(triple, key=lambda c: perp(a, c))
+            spread = perp(sorted_t[0], sorted_t[2])
+            if not (0.05 <= spread <= 0.35):
+                continue
+            avg_w = sum(c["L"] for c in triple) / 3
+            if not (0.6 <= avg_w <= 2.5):
+                continue
+            for c in triple:
+                used.add(id(c))
+            triplets.append({
+                "x_raw": sum(c["mx"] for c in triple) / 3,
+                "y_raw": sum(c["my"] for c in triple) / 3,
+                "width": round(avg_w, 3),
+                "thickness": round(spread, 3),
+                "ang_deg": round(math.degrees(a["ang"]), 1),
+            })
+    return triplets
+
+
 def main() -> None:
     doc = ezdxf.readfile(DXF)
     msp = doc.modelspace()
@@ -116,6 +196,10 @@ def main() -> None:
         raw_doors.append({"x_raw": cx0, "y_raw": cy0, "width": round(r, 3),
                           "startAngle": round(s_deg, 1), "endAngle": round(e_deg, 1)})
 
+    # Windows = triplets of parallel close 2-vert polylines on layer 0
+    # (releveu convention: 3 parallel lines instead of wall hatch at openings)
+    raw_windows = _detect_window_triplets(msp)
+
     all_polys = poly_paths + edge_paths + extra_polys
     if not all_polys:
         raise SystemExit("No CLADIRI_ACTIVE HATCH or closed polylines found")
@@ -145,6 +229,18 @@ def main() -> None:
         for d in raw_doors
     ]
 
+    windows = [
+        {
+            "x": round(w["x_raw"] - cx, 4),
+            "z": round(w["y_raw"] - cy, 4),
+            "width": w["width"],
+            "depth": w["thickness"],
+            "horizontal": 1 if abs(w["ang_deg"]) < 5 or abs(w["ang_deg"] - 180) < 5 else 0,
+            "points": [],
+        }
+        for w in raw_windows
+    ]
+
     # HATCH 1 polyline path = building exterior outline -> hatchOuter
     # HATCH 2 edge paths = interior wall stripes -> walls (each stripe is a thin closed poly)
     # layer 0 closed poly = canopy or secondary -> walls
@@ -166,7 +262,7 @@ def main() -> None:
         "hatchHoles": hatch_holes,
         "objects": [],
         "doors": doors,
-        "windows": [],
+        "windows": windows,
         "_meta": {
             "source": str(DXF.name),
             "originalCenterStereo70": [round(cx, 4), round(cy, 4)],
@@ -184,6 +280,7 @@ def main() -> None:
                 "extraPolys": len(extra_polys),
                 "wallsOut": len(walls),
                 "doorsOut": len(doors),
+                "windowsOut": len(windows),
                 "hasHatchOuter": hatch_outer is not None,
             },
         },
@@ -197,6 +294,7 @@ def main() -> None:
     print(f"  extra closed polys (layer 0): {len(extra_polys)}")
     print(f"  walls emitted: {len(walls)}")
     print(f"  doors emitted (from ARCs): {len(doors)}")
+    print(f"  windows emitted (3-line triplets): {len(windows)}")
     print(f"  hatchOuter: {'yes (' + str(len(hatch_outer)) + ' verts)' if hatch_outer else 'no'}")
     print(f"  bbox local: w={out['_meta']['extents']['widthM']}m h={out['_meta']['extents']['heightM']}m")
 
