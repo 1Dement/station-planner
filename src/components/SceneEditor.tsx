@@ -42,7 +42,35 @@ export default function SceneEditor() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const orthoCameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
-  const togglePlanView = () => setViewMode((m) => (m === '3d' ? '2d' : '3d'));
+  const togglePlanView = () => {
+    setViewMode((m) => {
+      const next = m === '3d' ? '2d' : '3d';
+      const orbit = orbitRef.current;
+      const cam = cameraRef.current;
+      if (!orbit || !cam) return next;
+      if (next === '2d') {
+        // Lock to top-down: camera straight above target, no rotation, only pan + zoom (CAD plan style)
+        const tgt = orbit.target;
+        const dist = Math.max(20, cam.position.distanceTo(tgt));
+        cam.position.set(tgt.x, dist, tgt.z + 0.001); // tiny Z offset to keep up vector valid
+        cam.up.set(0, 0, -1); // top-down: -Z is "up" on screen so X right Y up matches plan
+        cam.lookAt(tgt);
+        orbit.minPolarAngle = 0;
+        orbit.maxPolarAngle = 0;
+        orbit.enableRotate = false;
+        orbit.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+      } else {
+        // Restore orbit
+        cam.up.set(0, 1, 0);
+        orbit.minPolarAngle = 0;
+        orbit.maxPolarAngle = Math.PI / 2.05;
+        orbit.enableRotate = true;
+        orbit.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+      }
+      orbit.update();
+      return next;
+    });
+  };
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const composerRef = useRef<any>(null);
@@ -2006,11 +2034,11 @@ export default function SceneEditor() {
               </button>
               <button
                 onClick={togglePlanView}
-                title={`View: ${viewMode}`}
+                title={viewMode === '2d' ? 'Plan 2D blocat (top-down) - click pt 3D' : 'Comuta la plan 2D blocat (top-down)'}
                 className="text-xs py-2 px-3 rounded-lg font-medium transition-all"
                 style={{ background: viewMode === '2d' ? '#30d158' : '#f5f5f7', color: viewMode === '2d' ? '#fff' : '#1d1d1f', border: viewMode === '2d' ? 'none' : '1px solid #d1d1d6' }}
               >
-                {viewMode === '2d' ? '2D' : '3D'}
+                {viewMode === '2d' ? '🔒 PLAN 2D' : '📐 Plan 2D'}
               </button>
             </div>
             <div className="flex items-center gap-2 text-[11px]" style={{ color: '#1d1d1f' }}>

@@ -282,10 +282,10 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const clockwise = span < 0;
       const arcEndRad = startRad + span * Math.PI / 180;
 
-      // pivot.rotation.y = -startRad rotates local +X -> world (cos β, 0, sin β) where β = startRad.
+      // pivot.rotation.y = -startRad. Three.js Y-rot maps local +X to world (cos β, 0, -sin β).
       // Header center = hinge + (dw/2) along that direction.
       const cxw = door.x + (dw / 2) * Math.cos(startRad);
-      const czw = door.z + (dw / 2) * Math.sin(startRad);
+      const czw = door.z - (dw / 2) * Math.sin(startRad);
 
       const headerH = WALL_HEIGHT - DOOR_H;
       if (headerH > 0.05) {
