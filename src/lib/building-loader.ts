@@ -161,49 +161,38 @@ function buildHatchCap(outer: number[][], holes: number[][][], height: number, m
 }
 
 function createTileFloorTexture(): THREE.CanvasTexture {
-  // Parquet (oak plank) texture: warm wood tones, plank seams, subtle grain.
+  // Uniform red-brown wood with subtle horizontal grain (single color, no plank seams).
   const size = 1024;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
-  // Plank dimensions (rendered into the tile-repeat block)
-  const plankW = size; // full width per plank (tile repeats horizontally)
-  const plankH = size / 6; // 6 planks per tile vertically
-  // Background dark seam
-  ctx.fillStyle = '#5b3a20';
+  // Base color: rich reddish-brown
+  ctx.fillStyle = '#9c4a2c';
   ctx.fillRect(0, 0, size, size);
-  // Oak palette
-  const palette = ['#a87c4f', '#b58859', '#9d7042', '#c39466', '#8e6537', '#b07a4a'];
+  // Horizontal grain streaks
+  for (let s = 0; s < 200; s++) {
+    const sy = Math.random() * size;
+    const dark = Math.random() < 0.5;
+    ctx.strokeStyle = dark
+      ? `rgba(60, 25, 12, ${0.06 + Math.random() * 0.10})`
+      : `rgba(220, 160, 120, ${0.04 + Math.random() * 0.06})`;
+    ctx.lineWidth = 0.6 + Math.random() * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(0, sy);
+    ctx.bezierCurveTo(size * 0.25, sy + (Math.random() - 0.5) * 3, size * 0.75, sy + (Math.random() - 0.5) * 3, size, sy);
+    ctx.stroke();
+  }
+  // Soft luminance variation across surface
   for (let i = 0; i < 6; i++) {
-    const y = i * plankH + 1;
-    const h = plankH - 2;
-    ctx.fillStyle = palette[i % palette.length];
-    // Stagger every other row by half plank for brick-bond look
-    const offsetX = (i % 2) * (plankW / 2);
-    ctx.fillRect(0 - offsetX, y, plankW, h);
-    ctx.fillRect(plankW - offsetX, y, plankW, h);
-    // Subtle wood grain streaks
-    ctx.strokeStyle = 'rgba(60, 35, 15, 0.18)';
-    ctx.lineWidth = 1;
-    for (let s = 0; s < 14; s++) {
-      const sy = y + Math.random() * h;
-      ctx.beginPath();
-      ctx.moveTo(0, sy);
-      ctx.bezierCurveTo(size * 0.3, sy + (Math.random() - 0.5) * 4, size * 0.7, sy + (Math.random() - 0.5) * 4, size, sy);
-      ctx.stroke();
-    }
-    // Knots
-    if (Math.random() < 0.5) {
-      const kx = Math.random() * size;
-      const ky = y + h * (0.3 + Math.random() * 0.4);
-      const kr = 4 + Math.random() * 4;
-      const grad = ctx.createRadialGradient(kx, ky, 0, kx, ky, kr);
-      grad.addColorStop(0, 'rgba(40, 25, 10, 0.55)');
-      grad.addColorStop(1, 'rgba(60, 35, 15, 0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(kx, ky, kr, 0, Math.PI * 2); ctx.fill();
-    }
+    const cx = Math.random() * size;
+    const cy = Math.random() * size;
+    const r = size * (0.25 + Math.random() * 0.35);
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grad.addColorStop(0, `rgba(${Math.random() < 0.5 ? '40,15,5' : '200,140,100'}, 0.05)`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
@@ -420,8 +409,8 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   const floorD = extMaxZ - extMinZ + 0.3;
   const floorGeo = new THREE.PlaneGeometry(floorW, floorD);
   const tileTexture = createTileFloorTexture();
-  // Tile = 2m wide × 1.2m tall (plank rows); repeat across floor.
-  tileTexture.repeat.set(Math.max(1, Math.ceil(floorW / 2)), Math.max(1, Math.ceil(floorD / 1.2)));
+  // Repeat texture: ~3m per tile so grain looks natural.
+  tileTexture.repeat.set(Math.max(1, Math.ceil(floorW / 3)), Math.max(1, Math.ceil(floorD / 3)));
   const floorMat = new THREE.MeshStandardMaterial({ map: tileTexture, roughness: 0.78, metalness: 0.02 });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
