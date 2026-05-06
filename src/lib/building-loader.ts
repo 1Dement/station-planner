@@ -588,17 +588,19 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     let cz = (extMinZ + extMaxZ) / 2;
     let canopyRotY = 0;
     if (slidingDoor) {
-      // Outward direction = from building center towards door, then beyond
+      // Outward direction = from building center towards door
       const bcx = (extMinX + extMaxX) / 2;
       const bcz = (extMinZ + extMaxZ) / 2;
       let dx = slidingDoor.x - bcx;
       let dz = slidingDoor.z - bcz;
       const dlen = Math.hypot(dx, dz) || 1;
       dx /= dlen; dz /= dlen;
-      const dist = 18; // ~18m from building center, past the door
-      cx = bcx + dx * dist;
-      cz = bcz + dz * dist;
-      canopyRotY = Math.atan2(dx, dz); // align canopy long axis perpendicular to outward
+      // Canopy CENTER = sliding door + 20m outward. Pump row midpoint = canopy center,
+      // which lies on the building axis through the door.
+      const dist = 20;
+      cx = slidingDoor.x + dx * dist;
+      cz = slidingDoor.z + dz * dist;
+      canopyRotY = Math.atan2(dx, dz);
     }
     const canopyW = 6, canopyD = 12, canopyH = 5;
 
