@@ -588,19 +588,27 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     let cz = (extMinZ + extMaxZ) / 2;
     let canopyRotY = 0;
     if (slidingDoor) {
-      // Outward direction = from building center towards door
+      // Determine which wall the door is on (n/s/e/w) using building bbox center.
+      // Then canopy center lies on the building's perpendicular axis through the door wall,
+      // offset 20m outward from the door.
       const bcx = (extMinX + extMaxX) / 2;
       const bcz = (extMinZ + extMaxZ) / 2;
-      let dx = slidingDoor.x - bcx;
-      let dz = slidingDoor.z - bcz;
-      const dlen = Math.hypot(dx, dz) || 1;
-      dx /= dlen; dz /= dlen;
-      // Canopy CENTER = sliding door + 20m outward. Pump row midpoint = canopy center,
-      // which lies on the building axis through the door.
+      const ddx = slidingDoor.x - bcx;
+      const ddz = slidingDoor.z - bcz;
       const dist = 20;
-      cx = slidingDoor.x + dx * dist;
-      cz = slidingDoor.z + dz * dist;
-      canopyRotY = Math.atan2(dx, dz);
+      if (Math.abs(ddx) >= Math.abs(ddz)) {
+        // East/West wall: outward along X, lock Z to building center axis
+        const sign = Math.sign(ddx) || 1;
+        cx = slidingDoor.x + sign * dist;
+        cz = bcz; // building axis
+        canopyRotY = sign > 0 ? Math.PI / 2 : -Math.PI / 2;
+      } else {
+        // North/South wall: outward along Z, lock X to building center axis
+        const sign = Math.sign(ddz) || 1;
+        cx = bcx;
+        cz = slidingDoor.z + sign * dist;
+        canopyRotY = sign > 0 ? 0 : Math.PI;
+      }
     }
     const canopyW = 6, canopyD = 12, canopyH = 5;
 
