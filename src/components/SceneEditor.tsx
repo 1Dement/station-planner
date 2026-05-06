@@ -2973,13 +2973,27 @@ export default function SceneEditor() {
           const [sx, sz] = snapWithIndicators(fpDraggingRef.current, target.x, target.z);
           fpDraggingRef.current.mesh.position.x = sx;
           fpDraggingRef.current.mesh.position.z = sz;
-          // Surface-top snap for small items
+          // Stack-on-top: any drag — if cursor is over another object's footprint and footprint fits,
+          // raycast finds top of that surface and we place the dragged object there.
           const it = fpDraggingRef.current;
-          const isCountertop = it.dimensions.height < 0.6 || ['coffee-machine', 'kettle', 'toaster', 'microwave'].includes(it.catalogId);
+          const surfY = getSurfaceTopY(sx, sz, it.mesh);
+          // Only stack if there's a meaningful surface (> 5 cm) AND the dragged object's footprint
+          // sits fully within the target's top — sample 4 corners.
           let yy = 0;
-          if (isCountertop) {
-            const surfY = getSurfaceTopY(sx, sz, it.mesh);
-            if (surfY > 0.05) yy = surfY;
+          if (surfY > 0.05) {
+            const hw = it.dimensions.width / 2, hd = it.dimensions.depth / 2;
+            const ry = it.mesh.rotation.y;
+            const cs = Math.cos(ry), sn = Math.sin(ry);
+            const corners: Array<[number, number]> = [];
+            for (const [lx, lz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) {
+              corners.push([sx + lx * cs - lz * sn, sz + lx * sn + lz * cs]);
+            }
+            let allOnSurface = true;
+            for (const [cx, cz] of corners) {
+              const cy = getSurfaceTopY(cx, cz, it.mesh);
+              if (Math.abs(cy - surfY) > 0.05) { allOnSurface = false; break; }
+            }
+            if (allOnSurface) yy = surfY;
           }
           fpDraggingRef.current.mesh.position.y = yy;
           updateDropIndicator(fpDraggingRef.current, sx, sz);
