@@ -1108,8 +1108,10 @@ export default function SceneEditor() {
         return;
       }
 
-      if (!orbitEditRef.current) return; // No interaction in non-edit mode
+      // Always record mousedown for measure tool drag-vs-click detection
       mouseDownPosRef.current.set(e.clientX, e.clientY);
+      if (measureMode) return; // measure handled in mouseUp
+      if (!orbitEditRef.current) return; // No further interaction in non-edit mode
 
       const rect = el.getBoundingClientRect();
       mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1245,6 +1247,15 @@ export default function SceneEditor() {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
+      // Measure tool works in any mode (orbit free, edit, walk) — gate first
+      if (measureMode) {
+        const dx0 = e.clientX - mouseDownPosRef.current.x;
+        const dy0 = e.clientY - mouseDownPosRef.current.y;
+        if (Math.abs(dx0) < 5 && Math.abs(dy0) < 5) {
+          handleMeasureClick(e.clientX, e.clientY);
+          return;
+        }
+      }
       if (fpModeRef.current) return;
       if (!orbitEditRef.current) return;
 
@@ -1906,6 +1917,11 @@ export default function SceneEditor() {
     let leftDown = false;
     const onMouseDown = (e: MouseEvent) => {
       if (e.target !== el) return;
+      // Measure mode click in walk: hit floor at click point, no rotation/object pickup
+      if (e.button === 0 && measureMode) {
+        handleMeasureClick(e.clientX, e.clientY);
+        return;
+      }
       if (e.button === 2) {
         mouseDown = true;
         lastMX = e.clientX; lastMY = e.clientY;
@@ -2448,6 +2464,14 @@ export default function SceneEditor() {
                 <input type="range" min={40} max={110} step={1} value={fov} onChange={(e) => setFov(parseInt(e.target.value))} className="w-20 accent-blue-500" />
                 <span className="text-[10px] font-mono w-8 text-right" style={{ color: '#fff' }}>{fov}°</span>
               </div>
+              <button
+                onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }}
+                className="text-xs px-3 py-1.5 rounded-xl font-semibold"
+                style={{ background: measureMode ? '#ff3b30' : 'rgba(255,255,255,0.15)', color: '#fff' }}
+                title="Tool masura: click 2 puncte pe podea"
+              >
+                📏 MASURA
+              </button>
               <button
                 onClick={exitFpMode}
                 className="text-xs px-3 py-1.5 rounded-xl font-semibold"
