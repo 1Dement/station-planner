@@ -241,11 +241,19 @@ export interface DoorPanel {
   endAngle: number;   // radians - fully open position
 }
 
+export interface SlidingDoor {
+  group: THREE.Group;
+  panelL: THREE.Mesh;
+  panelR: THREE.Mesh;
+  halfW: number;
+}
+
 export function loadBuildingIntoScene(scene: THREE.Scene): {
   exteriorBounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   wallSegments: WallSegment[];
   dxfObjects: DxfObject[];
   doorPanels: DoorPanel[];
+  slidingDoors: SlidingDoor[];
   ceiling: THREE.Mesh;
 } {
   const data = buildingData as BuildingJSON;
@@ -253,6 +261,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   group.userData = { type: 'building' };
   const wallSegments: WallSegment[] = [];
   const doorPanels: DoorPanel[] = [];
+  const slidingDoors: SlidingDoor[] = [];
 
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0xf2ede4,
@@ -373,6 +382,12 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), sensorMat);
         sensor.position.set(0, slideH + 0.18 + 0.04, 0.10);
         grp.add(sensor);
+
+        grp.userData = { type: 'slidingDoor', isOpen: false };
+        // Tag panels so click detection finds them
+        panelL.userData = { type: 'slidingDoor' };
+        panelR.userData = { type: 'slidingDoor' };
+        slidingDoors.push({ group: grp, panelL, panelR, halfW });
 
         group.add(grp);
       } else {
@@ -496,6 +511,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     wallSegments,
     dxfObjects: data.objects || [],
     doorPanels,
+    slidingDoors,
     ceiling,
   };
 }

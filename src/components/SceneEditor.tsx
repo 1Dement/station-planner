@@ -14,7 +14,7 @@ import {
   PlacedObject, createPlacedObject, highlightObject,
   checkCollision, getDistance, exportLayout
 } from '@/lib/scene-objects';
-import { loadBuildingIntoScene, snapToWall, WallSegment, DoorPanel } from '@/lib/building-loader';
+import { loadBuildingIntoScene, snapToWall, WallSegment, DoorPanel, SlidingDoor } from '@/lib/building-loader';
 import type { Wall, Hole } from '@/lib/wall-tool';
 import { DEFAULT_WALL_STYLE, DEFAULT_DOOR, DEFAULT_WINDOW, findNearestWall } from '@/lib/wall-tool';
 import { snap as snapPoint, SNAP_ENDPOINT, SNAP_MIDPOINT, SNAP_GRID } from '@/lib/wall-snap';
@@ -116,6 +116,7 @@ export default function SceneEditor() {
   const buildingBoundsRef = useRef<{ minX: number; maxX: number; minZ: number; maxZ: number } | null>(null);
   const wallSegmentsRef = useRef<WallSegment[]>([]);
   const doorPanelsRef = useRef<Array<{ panel: THREE.Object3D; pivot: THREE.Group; info: DoorPanel }>>([]);
+  const slidingDoorsRef = useRef<SlidingDoor[]>([]);
   const ceilingRef = useRef<THREE.Mesh | null>(null);
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef(new THREE.Vector3());
@@ -672,6 +673,7 @@ export default function SceneEditor() {
     buildingBoundsRef.current = buildingResult.exteriorBounds;
     wallSegmentsRef.current = buildingResult.wallSegments;
     ceilingRef.current = buildingResult.ceiling;
+    slidingDoorsRef.current = buildingResult.slidingDoors || [];
     const bw = buildingResult.exteriorBounds.maxX - buildingResult.exteriorBounds.minX;
     const bd = buildingResult.exteriorBounds.maxZ - buildingResult.exteriorBounds.minZ;
     setRoomWidth(Math.ceil(bw));
@@ -1253,13 +1255,50 @@ export default function SceneEditor() {
         mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
 
-        // Door toggle
+        // Sliding door toggle (gas station double sliding)
+        const slidingGroups = slidingDoorsRef.current.map(s => s.group);
+        const slidingHits = slidingGroups.length ? raycasterRef.current.intersectObjects(slidingGroups, true) : [];
+        if (slidingHits.length > 0) {
+          let n: THREE.Object3D | null = slidingHits[0].object;
+          let entry: SlidingDoor | undefined;
+          while (n) {
+            entry = slidingDoorsRef.current.find(s => s.group === n);
+            if (entry) break;
+            n = n.parent;
+          }
+          if (entry) {
+            const ud = entry.group.userData as { isOpen: boolean };
+            ud.isOpen = !ud.isOpen;
+            const targetOffset = ud.isOpen ? entry.halfW - 0.04 : 0;
+            const startL = entry.panelL.position.x;
+            const startR = entry.panelR.position.x;
+            const endL = -(entry.halfW - 0.04) / 2 - 0.02 - targetOffset;
+            const endR = +(entry.halfW - 0.04) / 2 + 0.02 + targetOffset;
+            const t0 = performance.now();
+            const dur = 600;
+            const tween = () => {
+              const t = Math.min(1, (performance.now() - t0) / dur);
+              const k = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // easeInOutQuad
+              entry!.panelL.position.x = startL + (endL - startL) * k;
+              entry!.panelR.position.x = startR + (endR - startR) * k;
+              if (t < 1) requestAnimationFrame(tween);
+            };
+            tween();
+            setStatusMsg(ud.isOpen ? 'Usa glisanta deschisa' : 'Usa glisanta inchisa');
+            return;
+          }
+        }
+
+        // Swing door toggle
         const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
         const doorHits = raycasterRef.current.intersectObjects(doorMeshes, true);
         if (doorHits.length > 0) {
-          let clickedDoor = doorHits[0].object as THREE.Object3D;
+          let clickedDoor: THREE.Object3D | null = doorHits[0].object;
           let doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor || d.panel === clickedDoor);
-          while (!doorEntry && clickedDoor.parent) { clickedDoor = clickedDoor.parent; doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor); }
+          while (!doorEntry && clickedDoor && clickedDoor.parent) {
+            clickedDoor = clickedDoor.parent;
+            doorEntry = doorPanelsRef.current.find(d => d.pivot === clickedDoor || d.panel === clickedDoor);
+          }
           if (doorEntry) {
             const ud = doorEntry.pivot.userData;
             ud.isOpen = !ud.isOpen;
