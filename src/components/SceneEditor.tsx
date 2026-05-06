@@ -546,14 +546,20 @@ export default function SceneEditor() {
   };
 
   const clearMeasure = () => {
-    // Clear all persistent measurements + the in-progress one
+    // Remove every measureDim group + bare measureDim children traversed from scene
     if (sceneRef.current) {
-      for (const m of measurementsRef.current) {
-        sceneRef.current.remove(m.line); m.line.geometry.dispose();
-        sceneRef.current.remove(m.label);
-        if (m.label.material instanceof THREE.SpriteMaterial) {
-          m.label.material.map?.dispose(); m.label.material.dispose();
-        }
+      const toRemove: THREE.Object3D[] = [];
+      sceneRef.current.traverse((o) => { if (o.userData?.type === 'measureDim') toRemove.push(o); });
+      for (const g of toRemove) {
+        g.traverse((o) => {
+          const anyO = o as { geometry?: THREE.BufferGeometry; material?: THREE.Material | THREE.Material[] };
+          if (anyO.geometry) anyO.geometry.dispose();
+          if (anyO.material) {
+            const mats = Array.isArray(anyO.material) ? anyO.material : [anyO.material];
+            for (const mat of mats) { (mat as THREE.SpriteMaterial).map?.dispose?.(); mat.dispose(); }
+          }
+        });
+        g.parent?.remove(g);
       }
     }
     measurementsRef.current = [];
@@ -1083,34 +1089,71 @@ export default function SceneEditor() {
       const p2 = pt.clone();
       const dist = p1.distanceTo(p2);
 
-      const lineMat = new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 2 });
-      const lineGeo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(p1.x, 0.05, p1.z),
-        new THREE.Vector3(p2.x, 0.05, p2.z),
-      ]);
-      const line = new THREE.Line(lineGeo, lineMat);
-      sceneRef.current.add(line);
-      measureLineRef.current = line;
+      // Group: two arrow segments from midpoint outward + minimalist red text in middle
+      const dimGroup = new THREE.Group();
+      dimGroup.userData = { type: 'measureDim' };
+      const RED = 0xff2030;
+      const ay = (p1.y + p2.y) / 2 || 0.05;
+      const a = new THREE.Vector3(p1.x, p1.y || ay, p1.z);
+      const b = new THREE.Vector3(p2.x, p2.y || ay, p2.z);
+      const mid = a.clone().add(b).multiplyScalar(0.5);
+      const dir = b.clone().sub(a);
+      const len = dir.length();
+      dir.normalize();
 
-      // Label
+      // Reserve a gap in the middle for the text (proportional, capped)
+      const gap = Math.min(Math.max(len * 0.18, 0.35), 1.2);
+      const halfGap = gap / 2;
+      const mLeft = mid.clone().add(dir.clone().multiplyScalar(-halfGap));
+      const mRight = mid.clone().add(dir.clone().multiplyScalar(halfGap));
+
+      const lineMat = new THREE.LineBasicMaterial({ color: RED, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false });
+      const segL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([mLeft, a]), lineMat);
+      const segR = new THREE.Line(new THREE.BufferGeometry().setFromPoints([mRight, b]), lineMat.clone());
+      segL.renderOrder = 9994; segR.renderOrder = 9994;
+      dimGroup.add(segL); dimGroup.add(segR);
+
+      // Arrowheads (cones) at each endpoint, pointing outward (toward a / toward b)
+      const headLen = Math.min(0.18, len * 0.05);
+      const headRad = headLen * 0.45;
+      const coneMat = new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false });
+      const coneGeo = new THREE.ConeGeometry(headRad, headLen, 12);
+      const headA = new THREE.Mesh(coneGeo, coneMat);
+      headA.position.copy(a);
+      headA.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().multiplyScalar(-1));
+      headA.renderOrder = 9995;
+      dimGroup.add(headA);
+      const headB = new THREE.Mesh(coneGeo, coneMat);
+      headB.position.copy(b);
+      headB.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      headB.renderOrder = 9995;
+      dimGroup.add(headB);
+
+      // Minimalist red text — no pill, transparent background, bold
       const canvas = document.createElement('canvas');
       canvas.width = 256; canvas.height = 64;
       const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = 'rgba(220,40,40,0.85)';
-      ctx.roundRect(0, 0, 256, 64, 8);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 30px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.clearRect(0, 0, 256, 64);
+      ctx.fillStyle = '#ff2030';
+      ctx.font = '900 36px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // subtle white halo for legibility on dark surfaces
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.strokeText(`${dist.toFixed(2)} m`, 128, 32);
       ctx.fillText(`${dist.toFixed(2)} m`, 128, 32);
       const tex = new THREE.CanvasTexture(canvas);
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-      sprite.position.set((p1.x + p2.x) / 2, 0.5, (p1.z + p2.z) / 2);
-      sprite.scale.set(1.2, 0.3, 1);
-      sceneRef.current.add(sprite);
+      tex.anisotropy = 4;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, toneMapped: false }));
+      sprite.position.copy(mid);
+      sprite.scale.set(1.2, 0.30, 1);
+      sprite.renderOrder = 9999;
+      dimGroup.add(sprite);
+
+      sceneRef.current.add(dimGroup);
+      // Bag in measurementsRef as a single unit (line=segL acts as removable handle)
+      measureLineRef.current = segL;
       measureLabelRef.current = sprite;
-      measurementsRef.current.push({ line, label: sprite, dist });
+      measurementsRef.current.push({ line: segL, label: sprite, dist });
 
       setStatusMsg(`Distanta: ${dist.toFixed(2)} m | click pt masura noua, ESC pt iesire`);
       measurePt1Ref.current = null;
