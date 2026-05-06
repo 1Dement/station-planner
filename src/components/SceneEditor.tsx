@@ -610,29 +610,46 @@ export default function SceneEditor() {
     snapMarkersGroupRef.current.visible = v;
   };
 
-  // === Snap ring (gold hover indicator, Polycam style) ===
+  // === Hover preview ball (Polycam style — ball at exactly where click will land) ===
   const ensureSnapRing = (): THREE.Mesh => {
     if (snapRingRef.current) return snapRingRef.current;
-    const geo = new THREE.RingGeometry(0.18, 0.26, 32);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
-    const ring = new THREE.Mesh(geo, mat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.renderOrder = 10000;
-    ring.visible = false;
-    sceneRef.current?.add(ring);
-    snapRingRef.current = ring;
-    return ring;
+    const geo = new THREE.SphereGeometry(0.09, 14, 12);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff2030, transparent: true, opacity: 0.85, depthTest: false, depthWrite: false, toneMapped: false });
+    const ball = new THREE.Mesh(geo, mat);
+    ball.renderOrder = 10000;
+    ball.visible = false;
+    sceneRef.current?.add(ball);
+    snapRingRef.current = ball;
+    return ball;
   };
   const showSnapRing = (x: number, z: number, snapped: boolean, y: number = 0.06) => {
     const r = ensureSnapRing();
-    (r.material as THREE.MeshBasicMaterial).color.setHex(snapped ? 0xc9a227 : 0x86868b);
+    // Red when on a snap target (vertex/edge), softer pink for plain surface
+    (r.material as THREE.MeshBasicMaterial).color.setHex(snapped ? 0xff2030 : 0xff8088);
     r.position.set(x, y, z);
-    // Make ring face camera in 3D (so it reads as a circle from any angle)
-    if (cameraRef.current && viewMode !== '2d') r.lookAt(cameraRef.current.position);
-    else r.rotation.set(-Math.PI / 2, 0, 0);
     r.visible = true;
   };
   const hideSnapRing = () => { if (snapRingRef.current) snapRingRef.current.visible = false; };
+
+  // Track currently-hovered gold marker so we can revert its color on hover-out
+  const hoveredMarkerRef = useRef<THREE.Mesh | null>(null);
+  const setHoveredMarker = (m: THREE.Mesh | null) => {
+    if (hoveredMarkerRef.current === m) return;
+    if (hoveredMarkerRef.current) {
+      const oldMat = hoveredMarkerRef.current.material as THREE.MeshBasicMaterial;
+      oldMat.color.setHex(0xc9a227);
+    }
+    if (m) {
+      const newMat = m.material as THREE.MeshBasicMaterial;
+      // Clone material on first hover so we don't tint ALL markers (they share one material)
+      if (!m.userData.hoverIsolated) {
+        m.material = newMat.clone();
+        m.userData.hoverIsolated = true;
+      }
+      (m.material as THREE.MeshBasicMaterial).color.setHex(0xff2030);
+    }
+    hoveredMarkerRef.current = m;
+  };
 
   // === WallPair selection rendering ===
   const clearWallPairSelection = () => {
@@ -1907,6 +1924,7 @@ export default function SceneEditor() {
       // Measure tool hover snap indicator
       if (measureModeRef.current) {
         if (measureSubModeRef.current === 'wallPair') {
+          setHoveredMarker(null);
           const raw = getFloorIntersection(e.clientX, e.clientY);
           if (raw) {
             const w = pickNearestWall(raw);
@@ -1918,12 +1936,47 @@ export default function SceneEditor() {
             if (wallPairFirstRef.current) updateWallPairPreview(e.clientX, e.clientY);
           } else hideSnapRing();
         } else {
-          // Distance: Polycam-style 3D snap (vertex/edge/surface) — works in walk + orbit + 2D
-          const hit3d = get3DSnapHit(e.clientX, e.clientY);
-          if (hit3d) {
-            showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, viewMode === '2d' ? 0.06 : Math.max(0.06, hit3d.p.y));
-          } else hideSnapRing();
+          // Distance: Polycam-style 3D snap (vertex/edge/surface)
+          // First detect direct hover over a gold marker so we tint it red as selection feedback
+          let hoveredDot: THREE.Mesh | null = null;
+          if (snapMarkersGroupRef.current && snapMarkersGroupRef.current.visible && rendererRef.current && cameraRef.current) {
+            const rect = rendererRef.current.domElement.getBoundingClientRect();
+            const ndc = new THREE.Vector2(
+              ((e.clientX - rect.left) / rect.width) * 2 - 1,
+              -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            raycasterRef.current.setFromCamera(ndc, cameraRef.current);
+            const mh = raycasterRef.current.intersectObjects(snapMarkersGroupRef.current.children, false);
+            if (mh.length > 0) {
+              // Verify not occluded
+              const occluders: THREE.Object3D[] = [];
+              sceneRef.current?.traverse((o) => {
+                if (!o.visible) return;
+                const t = o.userData?.type;
+                if (t === 'snapMarker' || t === 'snapMarkers' || t === 'measureDim' || t === 'measureDimStart' || t === 'snapLines' || t === 'autoMeasures' || t === 'dropIndicator') return;
+                if (o.parent?.userData?.type === 'snapMarkers') return;
+                if (o.name === 'sky') return;
+                if ((o as THREE.Mesh).isMesh) occluders.push(o);
+              });
+              const oh = raycasterRef.current.intersectObjects(occluders, false);
+              const occluded = oh.length > 0 && oh[0].distance < mh[0].distance - 0.02;
+              if (!occluded) hoveredDot = mh[0].object as THREE.Mesh;
+            }
+          }
+          setHoveredMarker(hoveredDot);
+
+          if (hoveredDot) {
+            // Marker turns red itself — hide the ball so we don't double-render
+            hideSnapRing();
+          } else {
+            const hit3d = get3DSnapHit(e.clientX, e.clientY);
+            if (hit3d) {
+              showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, viewMode === '2d' ? 0.06 : Math.max(0.06, hit3d.p.y));
+            } else hideSnapRing();
+          }
         }
+      } else {
+        setHoveredMarker(null);
       }
 
       // Wall draw tool — update preview + snap marker
