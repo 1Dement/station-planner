@@ -316,7 +316,7 @@ export default function SceneEditor() {
   const fpTickRef = useRef<(() => void) | null>(null);
 
   // Undo/redo
-  interface HistoryEntry { id: string; x: number; z: number; ry: number }
+  interface HistoryEntry { id: string; catalogId?: string; x: number; z: number; ry: number }
   const undoStackRef = useRef<HistoryEntry[][]>([]);
   const redoStackRef = useRef<HistoryEntry[][]>([]);
 
@@ -467,16 +467,39 @@ export default function SceneEditor() {
 
   const saveSnapshot = () => {
     const snapshot = objectsRef.current.map(o => ({
-      id: o.id, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
+      id: o.id, catalogId: o.catalogId, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
     }));
     undoStackRef.current.push(snapshot);
     redoStackRef.current = [];
   };
 
-  const applySnapshot = (snap: { id: string; x: number; z: number; ry: number }[]) => {
+  const applySnapshot = (snap: { id: string; catalogId?: string; x: number; z: number; ry: number }[]) => {
+    // Remove objects no longer in snapshot
+    const keepIds = new Set(snap.map(s => s.id));
+    const toRemove = objectsRef.current.filter(o => !keepIds.has(o.id));
+    for (const obj of toRemove) {
+      sceneRef.current?.remove(obj.mesh);
+      obj.mesh.traverse(c => { if (c instanceof THREE.Mesh) { c.geometry.dispose(); if (c.material instanceof THREE.Material) c.material.dispose(); }});
+    }
+    objectsRef.current = objectsRef.current.filter(o => keepIds.has(o.id));
+    // Add or update from snapshot
     for (const s of snap) {
-      const obj = objectsRef.current.find(o => o.id === s.id);
+      let obj = objectsRef.current.find(o => o.id === s.id);
+      if (!obj && s.catalogId) {
+        const item = CATALOG.find(c => c.id === s.catalogId);
+        if (item && sceneRef.current) {
+          obj = createPlacedObject(item, new THREE.Vector3(s.x, 0, s.z));
+          obj.id = s.id;
+          sceneRef.current.add(obj.mesh);
+          objectsRef.current.push(obj);
+        }
+      }
       if (obj) { obj.mesh.position.x = s.x; obj.mesh.position.z = s.z; obj.mesh.rotation.y = s.ry; }
+    }
+    setObjectCount(objectsRef.current.length);
+    if (selectedRef.current && !objectsRef.current.find(o => o.id === selectedRef.current!.id)) {
+      selectedRef.current = null;
+      setSelectedObj(null);
     }
     checkAllCollisions();
   };
@@ -484,7 +507,7 @@ export default function SceneEditor() {
   const undo = () => {
     if (undoStackRef.current.length === 0) return;
     const current = objectsRef.current.map(o => ({
-      id: o.id, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
+      id: o.id, catalogId: o.catalogId, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
     }));
     redoStackRef.current.push(current);
     const prev = undoStackRef.current.pop()!;
@@ -513,7 +536,7 @@ export default function SceneEditor() {
     const ptRaw = getFloorIntersection(clientX, clientY);
     if (!ptRaw || !sceneRef.current) return;
     // Snap to nearest: wall segment endpoint, then object corner, then 10cm grid
-    const snapDist = 0.6;
+    const snapDist = 1.5;
     const candidates: Array<{ x: number; z: number; d: number }> = [];
     for (const w of wallSegmentsRef.current) {
       for (const [x, z] of [[w.x1, w.z1], [w.x2, w.z2]]) {
@@ -586,7 +609,7 @@ export default function SceneEditor() {
   const redo = () => {
     if (redoStackRef.current.length === 0) return;
     const current = objectsRef.current.map(o => ({
-      id: o.id, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
+      id: o.id, catalogId: o.catalogId, x: o.mesh.position.x, z: o.mesh.position.z, ry: o.mesh.rotation.y
     }));
     undoStackRef.current.push(current);
     const next = redoStackRef.current.pop()!;
@@ -1284,7 +1307,7 @@ export default function SceneEditor() {
         }
       }
       if (fpModeRef.current) return;
-      if (!orbitEditRef.current) return;
+      // Note: removed early-exit on !orbitEditRef so door clicks (sliding/swing) work in free orbit too.
 
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
@@ -1432,6 +1455,22 @@ export default function SceneEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isInsideWall = (x: number, z: number, halfW: number, halfD: number): boolean => {
+    // Returns true if obj footprint center is too close to any wall stripe edge.
+    const PAD = 0.10;
+    const r = Math.max(halfW, halfD) + PAD;
+    for (const w of wallSegmentsRef.current) {
+      const wx = w.x2 - w.x1, wz = w.z2 - w.z1;
+      const len2 = wx * wx + wz * wz;
+      if (len2 < 0.01) continue;
+      const t = Math.max(0, Math.min(1, ((x - w.x1) * wx + (z - w.z1) * wz) / len2));
+      const cx = w.x1 + t * wx, cz = w.z1 + t * wz;
+      const dist = Math.hypot(x - cx, z - cz);
+      if (dist < r + w.thickness / 2) return true;
+    }
+    return false;
+  };
+
   const generateOMWLayout = () => {
     if (!sceneRef.current || !buildingBoundsRef.current) return;
     const b = buildingBoundsRef.current;
@@ -1478,12 +1517,27 @@ export default function SceneEditor() {
       { id: 'hand-sanitizer', rx: 0.45, rz: 0.92 },
       { id: 'fire-extinguisher', rx: 0.92, rz: 0.92 },
     ];
-    let placed = 0;
+    let placed = 0, skipped = 0;
+    saveSnapshot();
     for (const it of layout) {
       const item = CATALOG.find(c => c.id === it.id);
       if (!item) continue;
-      const x = b.minX + it.rx * bw;
-      const z = b.minZ + it.rz * bd;
+      let x = b.minX + it.rx * bw;
+      let z = b.minZ + it.rz * bd;
+      const halfW = item.dimensions.width / 2;
+      const halfD = item.dimensions.depth / 2;
+      // Try original; if collides with wall, search a small spiral up to 1.5m
+      if (isInsideWall(x, z, halfW, halfD)) {
+        let found = false;
+        for (let r = 0.3; r <= 1.5 && !found; r += 0.3) {
+          for (let a = 0; a < 360; a += 30) {
+            const tx = x + Math.cos(a * Math.PI / 180) * r;
+            const tz = z + Math.sin(a * Math.PI / 180) * r;
+            if (!isInsideWall(tx, tz, halfW, halfD)) { x = tx; z = tz; found = true; break; }
+          }
+        }
+        if (!found) { skipped++; continue; }
+      }
       const obj = createPlacedObject(item, new THREE.Vector3(x, 0, z));
       if (it.ry) obj.mesh.rotation.y = it.ry * Math.PI / 180;
       sceneRef.current!.add(obj.mesh);
@@ -1491,7 +1545,7 @@ export default function SceneEditor() {
       placed++;
     }
     setObjectCount(objectsRef.current.length);
-    setStatusMsg(`Generat layout OMW: ${placed} obiecte plasate. Trage-le sa repozitionezi.`);
+    setStatusMsg(`Generat layout OMW: ${placed} obiecte plasate${skipped ? ` (${skipped} sarite, fara loc liber)` : ''}. Ctrl+Z anuleaza.`);
     checkAllCollisions();
   };
 
@@ -1856,9 +1910,10 @@ export default function SceneEditor() {
       const outX = Math.sin(sy);
       const outZ = Math.cos(sy);
       cam.position.set(sx + outX * 2.5, 1.7, sz + outZ * 2.5);
-      // Face toward door (-out)
-      const yaw = Math.atan2(-outX, -outZ);
-      fpYawRef.current = yaw;
+      // Face toward door: forward dir = (-outX, 0, -outZ). yaw such that camera default -Z
+      // becomes that dir. With three.js Y-rot by θ, -Z maps to (sin θ, 0, -cos θ).
+      // Solve: sin θ = -outX, cos θ = outZ => θ = atan2(-outX, outZ)
+      fpYawRef.current = Math.atan2(-outX, outZ);
     } else if (bounds) {
       // Fallback: south-east of building, facing center
       cam.position.set(bounds.maxX + 2, 1.7, (bounds.minZ + bounds.maxZ) / 2);
