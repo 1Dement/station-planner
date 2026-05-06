@@ -598,7 +598,7 @@ export default function SceneEditor() {
     }
     for (const [x, z] of verts) {
       const m = new THREE.Mesh(dotGeo, dotMat);
-      m.position.set(x, 0.06, z);
+      m.position.set(x, 0, z);
       m.userData = { type: 'snapMarker', vx: x, vz: z };
       group.add(m);
     }
@@ -1976,7 +1976,7 @@ export default function SceneEditor() {
           } else {
             const hit3d = get3DSnapHit(e.clientX, e.clientY);
             if (hit3d) {
-              showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, viewMode === '2d' ? 0.06 : Math.max(0.06, hit3d.p.y));
+              showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, hit3d.p.y);
               lastSnapHitRef.current = hit3d;
             } else { hideSnapRing(); lastSnapHitRef.current = null; }
           }
@@ -2944,7 +2944,7 @@ export default function SceneEditor() {
           } else {
             const hit3d = get3DSnapHit(e.clientX, e.clientY);
             if (hit3d) {
-              showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, Math.max(0.06, hit3d.p.y));
+              showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, hit3d.p.y);
               lastSnapHitRef.current = hit3d;
             } else { hideSnapRing(); lastSnapHitRef.current = null; }
           }
