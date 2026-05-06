@@ -582,8 +582,9 @@ export default function SceneEditor() {
     const group = new THREE.Group();
     group.userData = { type: 'snapMarkers' };
     group.visible = false;
-    const dotMat = new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, toneMapped: false });
-    const dotGeo = new THREE.SphereGeometry(0.06, 10, 8);
+    // depthTest TRUE so dots get occluded by walls — only visible for surfaces in line-of-sight
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.98, depthTest: true, depthWrite: false, toneMapped: false });
+    const dotGeo = new THREE.SphereGeometry(0.08, 12, 10);
     // De-duplicate vertices from wall segments
     const seen = new Set<string>();
     const verts: Array<[number, number]> = [];
@@ -595,8 +596,8 @@ export default function SceneEditor() {
     }
     for (const [x, z] of verts) {
       const m = new THREE.Mesh(dotGeo, dotMat);
-      m.position.set(x, 0.04, z);
-      m.renderOrder = 9985;
+      m.position.set(x, 0.06, z);
+      m.userData = { type: 'snapMarker', vx: x, vz: z };
       group.add(m);
     }
     sceneRef.current.add(group);
@@ -869,6 +870,32 @@ export default function SceneEditor() {
     );
     raycasterRef.current.setFromCamera(ndc, cameraRef.current);
 
+    // First priority: direct hit on a snap marker dot (when measure mode visible)
+    if (snapMarkersGroupRef.current && snapMarkersGroupRef.current.visible) {
+      const markerHits = raycasterRef.current.intersectObjects(snapMarkersGroupRef.current.children, false);
+      if (markerHits.length > 0) {
+        // Verify nothing solid is in front (depth-tested already, but raycaster ignores depth — manual check)
+        const markerDist = markerHits[0].distance;
+        const markerPt = (markerHits[0].object as THREE.Mesh).position.clone();
+        // Cast ray vs scene meshes; if any hit closer than marker, the marker is occluded → skip it
+        const occluders: THREE.Object3D[] = [];
+        sceneRef.current.traverse((o) => {
+          if (!o.visible) return;
+          if (o.userData?.type === 'snapMarker') return;
+          if (o.userData?.type === 'snapMarkers') return;
+          if (o.userData?.type === 'dropIndicator') return;
+          if (o.userData?.type === 'snapLines') return;
+          if (o.userData?.type === 'autoMeasures') return;
+          if (o.userData?.type === 'measureDim') return;
+          if (o.name === 'sky') return;
+          if ((o as THREE.Mesh).isMesh) occluders.push(o);
+        });
+        const occHits = raycasterRef.current.intersectObjects(occluders, false);
+        const occluded = occHits.length > 0 && occHits[0].distance < markerDist - 0.02;
+        if (!occluded) return { p: markerPt, snapped: true, kind: 'vertex' };
+      }
+    }
+
     // Build mesh list: walls + objects + door panels (skip helpers, drop indicator, snap ring, autoMeasures, sky)
     const targets: THREE.Object3D[] = [];
     sceneRef.current.traverse((o) => {
@@ -877,6 +904,10 @@ export default function SceneEditor() {
       if (o.userData?.type === 'snapLines') return;
       if (o.userData?.type === 'autoMeasures') return;
       if (o.userData?.type === 'measurePreview') return;
+      if (o.userData?.type === 'measureDim') return;
+      if (o.userData?.type === 'snapMarker') return;
+      if (o.userData?.type === 'snapMarkers') return;
+      if (o.parent?.userData?.type === 'snapMarkers') return;
       if (o.name === 'sky') return;
       if ((o as THREE.Mesh).isMesh) targets.push(o);
     });
