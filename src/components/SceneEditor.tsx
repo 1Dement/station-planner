@@ -308,11 +308,18 @@ export default function SceneEditor() {
   const [fpDragging, setFpDragging] = useState<string | null>(null); // name of dragged obj
   const [measureMode, setMeasureMode] = useState(false);
   const measureModeRef = useRef(false);
+  type MeasureSubMode = 'distance' | 'wallPair';
+  const [measureSubMode, setMeasureSubMode] = useState<MeasureSubMode>('distance');
+  const measureSubModeRef = useRef<MeasureSubMode>('distance');
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
   const measureLineRef = useRef<THREE.Line | null>(null);
   const measureLabelRef = useRef<THREE.Sprite | null>(null);
   const measurementsRef = useRef<Array<{ line: THREE.Line; label: THREE.Sprite; dist: number }>>([]);
   const measurePreviewRef = useRef<{ line: THREE.Line; label: THREE.Sprite } | null>(null);
+  const snapRingRef = useRef<THREE.Mesh | null>(null);
+  // WallPair state
+  const wallPairFirstRef = useRef<{ idx: number; mid: THREE.Vector3; n: THREE.Vector3 } | null>(null);
+  const wallHighlightRef = useRef<THREE.Line[]>([]);
   const dragGhostRef = useRef<THREE.Mesh | null>(null);
   const autoMeasuresRef = useRef<THREE.Group | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
@@ -329,7 +336,8 @@ export default function SceneEditor() {
   useEffect(() => { roomWidthRef.current = roomWidth; }, [roomWidth]);
   useEffect(() => { roomDepthRef.current = roomDepth; }, [roomDepth]);
   useEffect(() => { fpModeRef.current = fpMode; }, [fpMode]);
-  useEffect(() => { measureModeRef.current = measureMode; if (!measureMode) { clearMeasurePreview(); measurePt1Ref.current = null; } }, [measureMode]);
+  useEffect(() => { measureModeRef.current = measureMode; if (!measureMode) { clearMeasurePreview(); measurePt1Ref.current = null; clearWallPairSelection(); hideSnapRing(); } }, [measureMode]);
+  useEffect(() => { measureSubModeRef.current = measureSubMode; clearMeasurePreview(); measurePt1Ref.current = null; clearWallPairSelection(); }, [measureSubMode]);
   // Resize 3D viewport when catalog panel opens/closes
   useEffect(() => {
     setTimeout(() => {
@@ -538,6 +546,145 @@ export default function SceneEditor() {
     measureLabelRef.current = null;
   };
 
+  // === Snap ring (gold hover indicator, Polycam style) ===
+  const ensureSnapRing = (): THREE.Mesh => {
+    if (snapRingRef.current) return snapRingRef.current;
+    const geo = new THREE.RingGeometry(0.18, 0.26, 32);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.renderOrder = 10000;
+    ring.visible = false;
+    sceneRef.current?.add(ring);
+    snapRingRef.current = ring;
+    return ring;
+  };
+  const showSnapRing = (x: number, z: number, snapped: boolean) => {
+    const r = ensureSnapRing();
+    (r.material as THREE.MeshBasicMaterial).color.setHex(snapped ? 0xc9a227 : 0x86868b);
+    r.position.set(x, 0.06, z);
+    r.visible = true;
+  };
+  const hideSnapRing = () => { if (snapRingRef.current) snapRingRef.current.visible = false; };
+
+  // === WallPair selection rendering ===
+  const clearWallPairSelection = () => {
+    if (sceneRef.current) {
+      for (const ln of wallHighlightRef.current) {
+        sceneRef.current.remove(ln);
+        ln.geometry.dispose();
+        (ln.material as THREE.Material).dispose();
+      }
+    }
+    wallHighlightRef.current = [];
+    wallPairFirstRef.current = null;
+  };
+  const highlightWall = (w: WallSegment, color: number) => {
+    if (!sceneRef.current) return;
+    const mat = new THREE.LineBasicMaterial({ color, linewidth: 4, transparent: true, opacity: 0.95, depthTest: false });
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(w.x1, 0.07, w.z1),
+      new THREE.Vector3(w.x2, 0.07, w.z2),
+    ]);
+    const ln = new THREE.Line(geo, mat);
+    ln.renderOrder = 9998;
+    sceneRef.current.add(ln);
+    wallHighlightRef.current.push(ln);
+  };
+  const pickNearestWall = (raw: THREE.Vector3): { idx: number; w: WallSegment; t: number; dist: number } | null => {
+    const segs = wallSegmentsRef.current;
+    if (!segs.length) return null;
+    let best: { idx: number; w: WallSegment; t: number; dist: number } | null = null;
+    for (let i = 0; i < segs.length; i++) {
+      const w = segs[i];
+      const dx = w.x2 - w.x1, dz = w.z2 - w.z1;
+      const len2 = dx * dx + dz * dz;
+      if (len2 < 1e-6) continue;
+      const t = Math.max(0, Math.min(1, ((raw.x - w.x1) * dx + (raw.z - w.z1) * dz) / len2));
+      const px = w.x1 + t * dx, pz = w.z1 + t * dz;
+      const d = Math.hypot(raw.x - px, raw.z - pz);
+      if (!best || d < best.dist) best = { idx: i, w, t, dist: d };
+    }
+    return best;
+  };
+  const handleWallPairClick = (clientX: number, clientY: number) => {
+    const raw = getFloorIntersection(clientX, clientY);
+    if (!raw || !sceneRef.current) return;
+    const hit = pickNearestWall(raw);
+    if (!hit || hit.dist > 1.5) { setStatusMsg('Click mai aproape de un perete'); return; }
+    const w = hit.w;
+    const mid = new THREE.Vector3((w.x1 + w.x2) / 2, 0, (w.z1 + w.z2) / 2);
+    const n = new THREE.Vector3(w.nx, 0, w.nz).normalize();
+
+    if (!wallPairFirstRef.current) {
+      clearWallPairSelection();
+      highlightWall(w, 0xc9a227);
+      wallPairFirstRef.current = { idx: hit.idx, mid, n };
+      setStatusMsg('Perete 1 selectat — click al doilea perete (ESC anuleaza)');
+      return;
+    }
+    if (hit.idx === wallPairFirstRef.current.idx) { setStatusMsg('Acelasi perete — alege altul'); return; }
+
+    const a = wallPairFirstRef.current;
+    const b = { mid, n };
+    const parallel = Math.abs(a.n.dot(b.n)) > 0.95;
+    let p1: THREE.Vector3, p2: THREE.Vector3, dist: number;
+    if (parallel) {
+      // perpendicular drop a.mid → plane(b)
+      const d = b.mid.clone().sub(a.mid).dot(b.n);
+      p1 = a.mid.clone();
+      p2 = a.mid.clone().add(b.n.clone().multiplyScalar(d));
+      dist = Math.abs(d);
+    } else {
+      // closest segment-segment fallback (reuse pickNearestWall logic on midpoints)
+      p1 = a.mid.clone();
+      p2 = b.mid.clone();
+      dist = p1.distanceTo(p2);
+    }
+    highlightWall(w, 0x0071e3);
+
+    // Draw dimension line + pill label, persistent
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x7c3aed, linewidth: 3, transparent: true, opacity: 0.95, depthTest: false });
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(p1.x, 0.09, p1.z),
+      new THREE.Vector3(p2.x, 0.09, p2.z),
+    ]);
+    const line = new THREE.Line(lineGeo, lineMat);
+    line.renderOrder = 9997;
+    sceneRef.current.add(line);
+    const sprite = makePillLabel(`${dist.toFixed(2)} m${parallel ? '' : ' ~'}`, '#7c3aed');
+    sprite.position.set((p1.x + p2.x) / 2, 0.6, (p1.z + p2.z) / 2);
+    sceneRef.current.add(sprite);
+    measurementsRef.current.push({ line, label: sprite, dist });
+    setStatusMsg(`Distanta perete-perete: ${dist.toFixed(2)} m${parallel ? '' : ' (neparalel — aprox)'}`);
+    wallPairFirstRef.current = null;
+    // Keep first highlight a moment, then clear all wall outlines on next click
+    setTimeout(() => clearWallPairSelection(), 1200);
+  };
+
+  // Shared pill label maker used by new measure rendering
+  const makePillLabel = (text: string, bg: string = '#1d1d1f'): THREE.Sprite => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 256, 64);
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    if ((ctx as CanvasRenderingContext2D).roundRect) (ctx as CanvasRenderingContext2D).roundRect(8, 8, 240, 48, 12);
+    else ctx.rect(8, 8, 240, 48);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 28px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 32);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.anisotropy = 4;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    sprite.scale.set(1.4, 0.35, 1);
+    sprite.renderOrder = 9999;
+    return sprite;
+  };
+
   const snapMeasurePt = (raw: THREE.Vector3): THREE.Vector3 => {
     const snapDist = 1.5;
     const candidates: Array<{ x: number; z: number; d: number }> = [];
@@ -630,6 +777,10 @@ export default function SceneEditor() {
   };
 
   const handleMeasureClick = (clientX: number, clientY: number) => {
+    if (measureSubModeRef.current === 'wallPair') {
+      handleWallPairClick(clientX, clientY);
+      return;
+    }
     const ptRaw = getFloorIntersection(clientX, clientY);
     if (!ptRaw || !sceneRef.current) return;
     const pt = snapMeasurePt(ptRaw);
@@ -880,7 +1031,8 @@ export default function SceneEditor() {
     // Simple trees (cylinder trunk + sphere canopy)
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.8 });
     const canopyMat = new THREE.MeshStandardMaterial({ color: 0x3d7a2a, roughness: 0.9 });
-    for (const [tx, tz] of [[-18, -12], [-18, 0], [-18, 10], [18, -12], [18, 0], [18, 10], [-8, 22], [0, 22], [8, 22]] as [number, number][]) {
+    // Trees only on opposite side from canopy/pumps (which are on +X side near sliding door)
+    for (const [tx, tz] of [[-18, -12], [-18, 0], [-18, 10], [-8, 22], [0, 22], [8, 22]] as [number, number][]) {
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 2.5, 8), trunkMat);
       trunk.position.set(tx, 1.25, tz);
       trunk.castShadow = true;
@@ -1368,6 +1520,25 @@ export default function SceneEditor() {
     const handleMouseMove = (e: MouseEvent) => {
       if (fpModeRef.current) return;
 
+      // Measure tool hover snap indicator
+      if (measureModeRef.current) {
+        const raw = getFloorIntersection(e.clientX, e.clientY);
+        if (raw) {
+          if (measureSubModeRef.current === 'wallPair') {
+            const w = pickNearestWall(raw);
+            if (w && w.dist < 1.5) {
+              const px = w.w.x1 + w.t * (w.w.x2 - w.w.x1);
+              const pz = w.w.z1 + w.t * (w.w.z2 - w.w.z1);
+              showSnapRing(px, pz, true);
+            } else hideSnapRing();
+          } else {
+            const snapped = snapMeasurePt(raw);
+            const isSnap = Math.hypot(raw.x - snapped.x, raw.z - snapped.z) > 0.001;
+            showSnapRing(snapped.x, snapped.z, isSnap);
+          }
+        } else hideSnapRing();
+      }
+
       // Wall draw tool — update preview + snap marker
       if (currentToolRef.current === 'wall') {
         el.style.cursor = 'crosshair';
@@ -1573,11 +1744,27 @@ export default function SceneEditor() {
         checkAllCollisions();
       }
       if (e.key === 'Escape') {
+        if (measureModeRef.current) {
+          measurePt1Ref.current = null;
+          clearMeasurePreview();
+          clearWallPairSelection();
+          hideSnapRing();
+          setMeasureMode(false);
+          setStatusMsg('Masura inchisa');
+          return;
+        }
         if (selectedRef.current) {
           highlightObject(selectedRef.current, false);
         }
         selectedRef.current = null;
         setSelectedObj(null);
+      }
+      if ((e.key === 'm' || e.key === 'M') && !measureModeRef.current) {
+        setMeasureMode(true); setStatusMsg('Masura: click 2 puncte (M cicleaza mod, ESC iesi)');
+      } else if ((e.key === 'm' || e.key === 'M') && measureModeRef.current) {
+        const next: MeasureSubMode = measureSubModeRef.current === 'distance' ? 'wallPair' : 'distance';
+        setMeasureSubMode(next);
+        setStatusMsg(next === 'wallPair' ? 'Mod: Pereti — click 2 pereti' : 'Mod: Distanta — click 2 puncte');
       }
       if ((e.key === 'd' || e.key === 'D') && selectedRef.current) {
         duplicateSelected();
@@ -2685,14 +2872,36 @@ export default function SceneEditor() {
             <button onClick={duplicateSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }}>Duplica</button>
             <button onClick={deleteSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }}>Sterge</button>
             <button onClick={clearAllObjects} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }} title="Sterge tot">X Tot</button>
-            <button
-              onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); setStatusMsg(!measureMode ? 'Masura: click 2 puncte pe podea (snap la colt zid)' : ''); }}
-              className="text-[11px] px-2.5 py-1.5 rounded-lg font-semibold"
-              style={{ background: measureMode ? '#ff3b30' : '#f5f5f7', color: measureMode ? '#fff' : '#1d1d1f' }}
-              title="Tool masura: click pe podea pt 2 puncte (cm/m). Click pe Masura iar pt iesire."
-            >
-              📏 MĂSURARE
-            </button>
+            <div className="flex items-center gap-1 rounded-lg overflow-hidden" style={{ background: measureMode ? '#1d1d1f' : '#f5f5f7' }}>
+              <button
+                onClick={() => { setMeasureMode(!measureMode); if (!measureMode) setStatusMsg('Masura ON · M cicleaza mod · ESC inchide'); }}
+                className="text-[11px] px-2 py-1.5 font-semibold"
+                style={{ background: measureMode ? '#ff3b30' : 'transparent', color: measureMode ? '#fff' : '#1d1d1f' }}
+                title="Tool masura (M)"
+              >📏 {measureMode ? 'ON' : 'MASURA'}</button>
+              {measureMode && (
+                <>
+                  <button
+                    onClick={() => setMeasureSubMode('distance')}
+                    className="text-[10px] px-2 py-1.5 font-semibold"
+                    style={{ background: measureSubMode === 'distance' ? '#0071e3' : 'transparent', color: '#fff' }}
+                    title="Distanta punct-punct"
+                  >Pct</button>
+                  <button
+                    onClick={() => setMeasureSubMode('wallPair')}
+                    className="text-[10px] px-2 py-1.5 font-semibold"
+                    style={{ background: measureSubMode === 'wallPair' ? '#7c3aed' : 'transparent', color: '#fff' }}
+                    title="Distanta perete-perete"
+                  >Per</button>
+                  <button
+                    onClick={() => { clearMeasure(); clearWallPairSelection(); setStatusMsg('Masuri sterse'); }}
+                    className="text-[10px] px-2 py-1.5 font-semibold"
+                    style={{ color: '#fff', opacity: 0.85 }}
+                    title="Sterge masurile"
+                  >x{measurementsRef.current.length}</button>
+                </>
+              )}
+            </div>
             <button
               onClick={() => setShowWallPanel(!showWallPanel)}
               className="text-[11px] px-2.5 py-1.5 rounded-lg font-semibold"
