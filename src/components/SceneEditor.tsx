@@ -1059,28 +1059,37 @@ export default function SceneEditor() {
       }
 
       // Click on object = select + prepare drag (suspend orbit while dragging)
+      // Map every hit to its top-level placed object, pick the closest *that is actually visible*
       const meshes = objectsRef.current.map(o => o.mesh);
-      const hits = raycasterRef.current.intersectObjects(meshes, true);
-      if (hits.length > 0) {
-        let clicked = hits[0].object as THREE.Object3D;
-        let obj = objectsRef.current.find(o => o.mesh === clicked);
-        while (!obj && clicked.parent) { clicked = clicked.parent; obj = objectsRef.current.find(o => o.mesh === clicked); }
-        if (obj) {
-          if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
-          selectedRef.current = obj;
-          setSelectedObj(obj);
-          highlightObject(obj, true);
-          const floorPoint = getFloorIntersection(e.clientX, e.clientY);
-          if (floorPoint) {
-            dragOffsetRef.current.set(obj.mesh.position.x - floorPoint.x, 0, obj.mesh.position.z - floorPoint.z);
-          }
-          saveSnapshot();
-          isDraggingRef.current = true;
-          el.style.cursor = 'grabbing';
-          if (orbitRef.current) orbitRef.current.enabled = false;
-          e.stopImmediatePropagation();
-          setStatusMsg(`Drag: ${obj.name} | R=rotire`);
+      const allHits = raycasterRef.current.intersectObjects(meshes, true);
+      let obj: PlacedObject | undefined;
+      for (const h of allHits) {
+        if (!h.object.visible) continue;
+        const mat = (h.object as THREE.Mesh).material as THREE.Material | undefined;
+        if (mat && 'opacity' in mat && (mat as THREE.Material & { opacity: number }).opacity < 0.05) continue;
+        let walker: THREE.Object3D | null = h.object;
+        while (walker) {
+          const found = objectsRef.current.find(o => o.mesh === walker);
+          if (found) { obj = found; break; }
+          walker = walker.parent;
         }
+        if (obj) break;
+      }
+      if (obj) {
+        if (selectedRef.current && selectedRef.current !== obj) highlightObject(selectedRef.current, false);
+        selectedRef.current = obj;
+        setSelectedObj(obj);
+        highlightObject(obj, true);
+        const floorPoint = getFloorIntersection(e.clientX, e.clientY);
+        if (floorPoint) {
+          dragOffsetRef.current.set(obj.mesh.position.x - floorPoint.x, 0, obj.mesh.position.z - floorPoint.z);
+        }
+        saveSnapshot();
+        isDraggingRef.current = true;
+        el.style.cursor = 'grabbing';
+        if (orbitRef.current) orbitRef.current.enabled = false;
+        e.stopImmediatePropagation();
+        setStatusMsg(`Drag: ${obj.name} | R=rotire`);
       }
       // No object hit: orbit handles the click naturally
     };
@@ -2227,6 +2236,41 @@ export default function SceneEditor() {
           <div className="absolute bottom-12 right-3 w-52 p-2.5 rounded-xl z-10" style={{ background: '#fff0f0', boxShadow: 'var(--shadow)', border: '1px solid #fecaca' }}>
             <h3 className="text-[11px] font-semibold mb-1" style={{ color: '#ff3b30' }}>Coliziuni ({collisions.length})</h3>
             {collisions.slice(0, 4).map((c, i) => (<p key={i} className="text-[10px]" style={{ color: '#86868b' }}>{c}</p>))}
+          </div>
+        )}
+
+        {/* Catalog obiecte plasate (Andrei feedback) */}
+        {!fpMode && objectCount > 0 && (
+          <div className="absolute bottom-12 left-3 w-60 p-2.5 rounded-xl z-10" style={{ background: darkMode ? '#1c1c2e' : '#fff', boxShadow: 'var(--shadow)', border: '1px solid ' + (darkMode ? '#333' : '#d1d1d6'), maxHeight: '40vh', overflowY: 'auto', color: darkMode ? '#e0e0e0' : '#1d1d1f' }}>
+            <h3 className="text-[11px] font-semibold mb-1.5" style={{ color: '#0071e3' }}>Obiecte plasate ({objectCount})</h3>
+            <ul className="space-y-0.5">
+              {objectsRef.current.map(o => (
+                <li
+                  key={o.id}
+                  onClick={() => {
+                    if (selectedRef.current) highlightObject(selectedRef.current, false);
+                    selectedRef.current = o;
+                    setSelectedObj(o);
+                    highlightObject(o, true);
+                    setStatusMsg(`Selectat: ${o.name}`);
+                  }}
+                  className="text-[10px] px-1.5 py-1 rounded cursor-pointer transition-colors"
+                  style={{
+                    background: selectedObj && selectedObj.id === o.id ? '#0071e3' : 'transparent',
+                    color: selectedObj && selectedObj.id === o.id ? '#fff' : (darkMode ? '#aaa' : '#1d1d1f'),
+                  }}
+                >
+                  {o.name} <span style={{ opacity: 0.6 }}>({o.mesh.position.x.toFixed(1)}, {o.mesh.position.z.toFixed(1)})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Pending placement banner */}
+        {!fpMode && pendingPlaceItem && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-2 rounded-lg z-20 text-[11px] font-semibold" style={{ background: '#0071e3', color: '#fff', boxShadow: 'var(--shadow)' }}>
+            Click pe podea pt plasare: {pendingPlaceItem.name} (ESC anuleaza)
           </div>
         )}
 
