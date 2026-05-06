@@ -144,6 +144,11 @@ export default function SceneEditor() {
   const [walkSpeed, setWalkSpeed] = useState(1.0);
   const walkSpeedRef = useRef(1.0);
   useEffect(() => { walkSpeedRef.current = walkSpeed; }, [walkSpeed]);
+  const [fov, setFov] = useState(50);
+  useEffect(() => {
+    const c = cameraRef.current as THREE.PerspectiveCamera | null;
+    if (c && c.isPerspectiveCamera) { c.fov = fov; c.updateProjectionMatrix(); }
+  }, [fov]);
 
   useEffect(() => { currentToolRef.current = currentTool; }, [currentTool]);
 
@@ -575,7 +580,30 @@ export default function SceneEditor() {
     if (!canvasRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xeaecf0);
+    // Procedural sky gradient (CanvasTexture mapped to scene background as equirect)
+    {
+      const sw = 1024, sh = 512;
+      const skyCanvas = document.createElement('canvas');
+      skyCanvas.width = sw; skyCanvas.height = sh;
+      const sctx = skyCanvas.getContext('2d')!;
+      const grad = sctx.createLinearGradient(0, 0, 0, sh);
+      grad.addColorStop(0.00, '#7ec0ee');   // zenith blue
+      grad.addColorStop(0.45, '#bfe2f7');   // upper haze
+      grad.addColorStop(0.55, '#f0f5fa');   // horizon
+      grad.addColorStop(1.00, '#d6dde2');   // ground bias
+      sctx.fillStyle = grad; sctx.fillRect(0, 0, sw, sh);
+      // soft sun glow
+      const sunX = sw * 0.65, sunY = sh * 0.32;
+      const sunGrad = sctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 220);
+      sunGrad.addColorStop(0, 'rgba(255, 245, 200, 0.85)');
+      sunGrad.addColorStop(1, 'rgba(255, 245, 200, 0)');
+      sctx.fillStyle = sunGrad;
+      sctx.beginPath(); sctx.arc(sunX, sunY, 220, 0, Math.PI * 2); sctx.fill();
+      const skyTex = new THREE.CanvasTexture(skyCanvas);
+      skyTex.mapping = THREE.EquirectangularReflectionMapping;
+      skyTex.colorSpace = THREE.SRGBColorSpace;
+      scene.background = skyTex;
+    }
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -2182,6 +2210,11 @@ export default function SceneEditor() {
             <button onClick={deleteSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }}>Sterge</button>
             <button onClick={clearAllObjects} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }} title="Sterge tot">X Tot</button>
             <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-[11px] px-2 py-1.5 rounded-lg" style={{ background: measureMode ? '#ff3b30' : 'transparent', color: measureMode ? '#fff' : '#1d1d1f' }}>Masura</button>
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: '#f5f5f7' }} title={`FOV ${fov}deg`}>
+              <span className="text-[10px] font-mono" style={{ color: '#86868b' }}>FOV</span>
+              <input type="range" min={20} max={110} step={1} value={fov} onChange={(e) => setFov(parseInt(e.target.value))} className="w-20 accent-blue-500" disabled={viewMode === '2d'} />
+              <span className="text-[10px] font-mono w-7 text-right" style={{ color: '#1d1d1f' }}>{fov}°</span>
+            </div>
           </div>
         )}
 
@@ -2214,6 +2247,11 @@ export default function SceneEditor() {
                   title={`x${walkSpeed.toFixed(1)} - Shift = sprint`}
                 />
                 <span className="text-[10px] font-mono w-8 text-right" style={{ color: '#fff' }}>x{walkSpeed.toFixed(1)}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.10)' }} title={`FOV ${fov}deg`}>
+                <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.7)' }}>FOV</span>
+                <input type="range" min={40} max={110} step={1} value={fov} onChange={(e) => setFov(parseInt(e.target.value))} className="w-20 accent-blue-500" />
+                <span className="text-[10px] font-mono w-8 text-right" style={{ color: '#fff' }}>{fov}°</span>
               </div>
               <button
                 onClick={exitFpMode}
