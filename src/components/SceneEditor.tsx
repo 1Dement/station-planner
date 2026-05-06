@@ -586,7 +586,7 @@ export default function SceneEditor() {
     group.visible = false;
     // depthTest TRUE so dots get occluded by walls — only visible for surfaces in line-of-sight
     const dotMat = new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.98, depthTest: true, depthWrite: false, toneMapped: false });
-    const dotGeo = new THREE.SphereGeometry(0.08, 12, 10);
+    const dotGeo = new THREE.SphereGeometry(0.04, 12, 10);
     // De-duplicate vertices from wall segments
     const seen = new Set<string>();
     const verts: Array<[number, number]> = [];
@@ -613,8 +613,8 @@ export default function SceneEditor() {
   // === Hover preview ball (Polycam style — ball at exactly where click will land) ===
   const ensureSnapRing = (): THREE.Mesh => {
     if (snapRingRef.current) return snapRingRef.current;
-    const geo = new THREE.SphereGeometry(0.09, 14, 12);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xff2030, transparent: true, opacity: 0.85, depthTest: false, depthWrite: false, toneMapped: false });
+    const geo = new THREE.SphereGeometry(0.045, 12, 10);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff2030, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, toneMapped: false });
     const ball = new THREE.Mesh(geo, mat);
     ball.renderOrder = 10000;
     ball.visible = false;
@@ -1135,7 +1135,7 @@ export default function SceneEditor() {
       const startGroup = new THREE.Group();
       startGroup.userData = { type: 'measureDimStart' };
       const dotMat = new THREE.MeshBasicMaterial({ color: 0xff2030, depthTest: false, toneMapped: false });
-      const dotGeo = new THREE.SphereGeometry(0.10, 12, 10);
+      const dotGeo = new THREE.SphereGeometry(0.05, 12, 10);
       const d = new THREE.Mesh(dotGeo, dotMat);
       d.position.copy(pt); d.renderOrder = 9996;
       startGroup.add(d);
@@ -1173,7 +1173,7 @@ export default function SceneEditor() {
 
       // Red endpoint dots (click confirmation — replace any gold marker visually)
       const dotMat = new THREE.MeshBasicMaterial({ color: RED, depthTest: false, toneMapped: false });
-      const dotGeo = new THREE.SphereGeometry(0.10, 12, 10);
+      const dotGeo = new THREE.SphereGeometry(0.05, 12, 10);
       const dotA = new THREE.Mesh(dotGeo, dotMat);
       dotA.position.copy(a); dotA.renderOrder = 9996;
       const dotB = new THREE.Mesh(dotGeo, dotMat);
@@ -1181,7 +1181,7 @@ export default function SceneEditor() {
       dimGroup.add(dotA); dimGroup.add(dotB);
 
       // Arrowheads (cones) at each endpoint, pointing outward (toward a / toward b)
-      const headLen = Math.min(0.18, len * 0.05);
+      const headLen = Math.min(0.09, len * 0.025);
       const headRad = headLen * 0.45;
       const coneMat = new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false });
       const coneGeo = new THREE.ConeGeometry(headRad, headLen, 12);
@@ -2890,6 +2890,55 @@ export default function SceneEditor() {
       }
     };
     const onMouseMove = (e: MouseEvent) => {
+      // Measure mode hover preview ball + vertex tint (walk mode)
+      if (measureModeRef.current && !mouseDown && !leftDown) {
+        if (measureSubModeRef.current === 'wallPair') {
+          setHoveredMarker(null);
+          const raw = getFloorIntersection(e.clientX, e.clientY);
+          if (raw) {
+            const w = pickNearestWall(raw);
+            if (w && w.dist < 1.5) {
+              const px = w.w.x1 + w.t * (w.w.x2 - w.w.x1);
+              const pz = w.w.z1 + w.t * (w.w.z2 - w.w.z1);
+              showSnapRing(px, pz, true);
+            } else hideSnapRing();
+            if (wallPairFirstRef.current) updateWallPairPreview(e.clientX, e.clientY);
+          } else hideSnapRing();
+        } else {
+          let hoveredDot: THREE.Mesh | null = null;
+          if (snapMarkersGroupRef.current && snapMarkersGroupRef.current.visible && rendererRef.current && cameraRef.current && sceneRef.current) {
+            const rect = rendererRef.current.domElement.getBoundingClientRect();
+            const ndc = new THREE.Vector2(
+              ((e.clientX - rect.left) / rect.width) * 2 - 1,
+              -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            raycasterRef.current.setFromCamera(ndc, cameraRef.current);
+            const mh = raycasterRef.current.intersectObjects(snapMarkersGroupRef.current.children, false);
+            if (mh.length > 0) {
+              const occluders: THREE.Object3D[] = [];
+              sceneRef.current.traverse((o) => {
+                if (!o.visible) return;
+                const t = o.userData?.type;
+                if (t === 'snapMarker' || t === 'snapMarkers' || t === 'measureDim' || t === 'measureDimStart' || t === 'snapLines' || t === 'autoMeasures' || t === 'dropIndicator') return;
+                if (o.parent?.userData?.type === 'snapMarkers') return;
+                if (o.name === 'sky') return;
+                if ((o as THREE.Mesh).isMesh) occluders.push(o);
+              });
+              const oh = raycasterRef.current.intersectObjects(occluders, false);
+              const occluded = oh.length > 0 && oh[0].distance < mh[0].distance - 0.02;
+              if (!occluded) hoveredDot = mh[0].object as THREE.Mesh;
+            }
+          }
+          setHoveredMarker(hoveredDot);
+          if (hoveredDot) hideSnapRing();
+          else {
+            const hit3d = get3DSnapHit(e.clientX, e.clientY);
+            if (hit3d) showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, Math.max(0.06, hit3d.p.y));
+            else hideSnapRing();
+          }
+        }
+        return;
+      }
       // Right-click look
       if (mouseDown) {
         const dx = e.clientX - lastMX, dy = e.clientY - lastMY;
