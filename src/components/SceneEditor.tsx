@@ -53,6 +53,7 @@ export default function SceneEditor() {
       const ssao = ssaoPassRef.current;
       if (!orbit || !persp || !renderer) return next;
 
+      if (autoMeasuresRef.current) autoMeasuresRef.current.visible = (next === '2d');
       if (next === '2d') {
         // Switch to ORTHOGRAPHIC top-down (true CAD plan view, zero perspective).
         const w = renderer.domElement.clientWidth;
@@ -313,6 +314,7 @@ export default function SceneEditor() {
   const measurementsRef = useRef<Array<{ line: THREE.Line; label: THREE.Sprite; dist: number }>>([]);
   const measurePreviewRef = useRef<{ line: THREE.Line; label: THREE.Sprite } | null>(null);
   const dragGhostRef = useRef<THREE.Mesh | null>(null);
+  const autoMeasuresRef = useRef<THREE.Group | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
   const fpYawRef = useRef(0);
   const fpPitchRef = useRef(0);
@@ -792,6 +794,7 @@ export default function SceneEditor() {
     wallSegmentsRef.current = buildingResult.wallSegments;
     ceilingRef.current = buildingResult.ceiling;
     slidingDoorsRef.current = buildingResult.slidingDoors || [];
+    autoMeasuresRef.current = buildingResult.autoMeasures;
     const bw = buildingResult.exteriorBounds.maxX - buildingResult.exteriorBounds.minX;
     const bd = buildingResult.exteriorBounds.maxZ - buildingResult.exteriorBounds.minZ;
     setRoomWidth(Math.ceil(bw));

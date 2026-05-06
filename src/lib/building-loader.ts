@@ -254,6 +254,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   dxfObjects: DxfObject[];
   doorPanels: DoorPanel[];
   slidingDoors: SlidingDoor[];
+  autoMeasures: THREE.Group;
   ceiling: THREE.Mesh;
 } {
   const data = buildingData as BuildingJSON;
@@ -505,6 +506,78 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   ceiling.visible = false; // off by default
   group.add(ceiling);
 
+  // === AUTO-MEASURES (visible only in 2D plan mode) ===
+  const autoMeasureGroup = new THREE.Group();
+  autoMeasureGroup.userData = { type: 'autoMeasures' };
+  autoMeasureGroup.visible = false;
+  {
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x0071e3, opacity: 0.55, transparent: true });
+    const tickMat = new THREE.LineBasicMaterial({ color: 0x0071e3, opacity: 0.4, transparent: true });
+
+    const makeLabel = (text: string, color: string = '#0071e3') => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 192; canvas.height = 48;
+      const ctx = canvas.getContext('2d')!;
+      ctx.clearRect(0, 0, 192, 48);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(0, 0, 192, 48);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 22px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, 96, 24);
+      const tex = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+      sprite.scale.set(0.9, 0.22, 1);
+      sprite.renderOrder = 9999;
+      return sprite;
+    };
+
+    // For each wall polygon, find the longest edge and label its length
+    for (const wall of data.walls) {
+      const pts = wall.points;
+      if (pts.length < 2) continue;
+      let bestLen = 0, bestI = 0;
+      const all = [...pts];
+      if (all[0][0] === all[all.length - 1][0] && all[0][1] === all[all.length - 1][1]) all.pop();
+      for (let i = 0; i < all.length; i++) {
+        const [x1, z1] = all[i]; const [x2, z2] = all[(i + 1) % all.length];
+        const len = Math.hypot(x2 - x1, z2 - z1);
+        if (len > bestLen) { bestLen = len; bestI = i; }
+      }
+      if (bestLen < 0.5) continue;
+      const [x1, z1] = all[bestI]; const [x2, z2] = all[(bestI + 1) % all.length];
+      const points = [new THREE.Vector3(x1, 0.08, z1), new THREE.Vector3(x2, 0.08, z2)];
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), lineMat);
+      autoMeasureGroup.add(line);
+      const sprite = makeLabel(`${bestLen.toFixed(2)}m`);
+      sprite.position.set((x1 + x2) / 2, 0.5, (z1 + z2) / 2);
+      autoMeasureGroup.add(sprite);
+    }
+
+    // Doors: label width
+    for (const d of data.doors || []) {
+      const w = d.width;
+      const sa = (d.startAngle || 0) * Math.PI / 180;
+      // Offset label perpendicular to door axis so it doesn't overlap the door
+      const cxw = d.x + (w / 2) * Math.cos(sa);
+      const czw = d.z - (w / 2) * Math.sin(sa);
+      const sprite = makeLabel(`${(w * 100).toFixed(0)}cm`, '#c97800');
+      sprite.position.set(cxw, 0.5, czw);
+      sprite.scale.set(0.7, 0.18, 1);
+      autoMeasureGroup.add(sprite);
+      void tickMat;
+    }
+
+    // Windows: label width
+    for (const wn of data.windows || []) {
+      const sprite = makeLabel(`${(wn.width * 100).toFixed(0)}cm`, '#0099cc');
+      sprite.position.set(wn.x, 0.5, wn.z);
+      sprite.scale.set(0.7, 0.18, 1);
+      autoMeasureGroup.add(sprite);
+    }
+  }
+  scene.add(autoMeasureGroup);
+
   // === EXTERIOR: Gas station canopy + 3 fuel pumps (in front of sliding door entrance) ===
   {
     const canopyGroup = new THREE.Group();
@@ -602,6 +675,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     dxfObjects: data.objects || [],
     doorPanels,
     slidingDoors,
+    autoMeasures: autoMeasureGroup,
     ceiling,
   };
 }
