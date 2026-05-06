@@ -320,6 +320,7 @@ export default function SceneEditor() {
   // WallPair state
   const wallPairFirstRef = useRef<{ idx: number; mid: THREE.Vector3; n: THREE.Vector3 } | null>(null);
   const wallHighlightRef = useRef<THREE.Line[]>([]);
+  const wallPairPreviewRef = useRef<{ line: THREE.Line; label: THREE.Sprite } | null>(null);
   const dragGhostRef = useRef<THREE.Mesh | null>(null);
   const autoMeasuresRef = useRef<THREE.Group | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
@@ -578,6 +579,75 @@ export default function SceneEditor() {
     }
     wallHighlightRef.current = [];
     wallPairFirstRef.current = null;
+    clearWallPairPreview();
+  };
+  const clearWallPairPreview = () => {
+    if (wallPairPreviewRef.current && sceneRef.current) {
+      sceneRef.current.remove(wallPairPreviewRef.current.line);
+      wallPairPreviewRef.current.line.geometry.dispose();
+      (wallPairPreviewRef.current.line.material as THREE.Material).dispose();
+      sceneRef.current.remove(wallPairPreviewRef.current.label);
+      const m = wallPairPreviewRef.current.label.material as THREE.SpriteMaterial;
+      m.map?.dispose(); m.dispose();
+      wallPairPreviewRef.current = null;
+    }
+  };
+  const updateWallPairPreview = (clientX: number, clientY: number) => {
+    if (!wallPairFirstRef.current || !sceneRef.current) { clearWallPairPreview(); return; }
+    const raw = getFloorIntersection(clientX, clientY);
+    if (!raw) { clearWallPairPreview(); return; }
+    const hit = pickNearestWall(raw);
+    if (!hit || hit.dist > 1.5 || hit.idx === wallPairFirstRef.current.idx) { clearWallPairPreview(); return; }
+    const a = wallPairFirstRef.current;
+    const w2 = hit.w;
+    const mid2 = new THREE.Vector3((w2.x1 + w2.x2) / 2, 0, (w2.z1 + w2.z2) / 2);
+    const n2 = new THREE.Vector3(w2.nx, 0, w2.nz).normalize();
+    const parallel = Math.abs(a.n.dot(n2)) > 0.95;
+    let p1: THREE.Vector3, p2: THREE.Vector3, dist: number;
+    if (parallel) {
+      const d = mid2.clone().sub(a.mid).dot(n2);
+      p1 = a.mid.clone();
+      p2 = a.mid.clone().add(n2.clone().multiplyScalar(d));
+      dist = Math.abs(d);
+    } else {
+      p1 = a.mid.clone();
+      p2 = mid2.clone();
+      dist = p1.distanceTo(p2);
+    }
+    const points = [new THREE.Vector3(p1.x, 0.085, p1.z), new THREE.Vector3(p2.x, 0.085, p2.z)];
+    if (!wallPairPreviewRef.current) {
+      const mat = new THREE.LineDashedMaterial({ color: 0x7c3aed, linewidth: 2, dashSize: 0.25, gapSize: 0.15, transparent: true, opacity: 0.85, depthTest: false });
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geo, mat);
+      line.computeLineDistances();
+      line.renderOrder = 9996;
+      sceneRef.current.add(line);
+      const sprite = makePillLabel(`${dist.toFixed(2)} m${parallel ? '' : ' ~'}`, '#7c3aed');
+      sprite.position.set((p1.x + p2.x) / 2, 0.55, (p1.z + p2.z) / 2);
+      sceneRef.current.add(sprite);
+      wallPairPreviewRef.current = { line, label: sprite };
+    } else {
+      const ln = wallPairPreviewRef.current.line;
+      ln.geometry.setFromPoints(points);
+      (ln as THREE.Line).computeLineDistances();
+      const lbl = wallPairPreviewRef.current.label;
+      const mat = lbl.material as THREE.SpriteMaterial;
+      const tex = mat.map as THREE.CanvasTexture;
+      const canvas = tex.image as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d')!;
+      ctx.clearRect(0, 0, 256, 64);
+      ctx.fillStyle = '#7c3aed';
+      ctx.beginPath();
+      if ((ctx as CanvasRenderingContext2D).roundRect) (ctx as CanvasRenderingContext2D).roundRect(8, 8, 240, 48, 12);
+      else ctx.rect(8, 8, 240, 48);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 28px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`${dist.toFixed(2)} m${parallel ? '' : ' ~'}`, 128, 32);
+      tex.needsUpdate = true;
+      lbl.position.set((p1.x + p2.x) / 2, 0.55, (p1.z + p2.z) / 2);
+    }
   };
   const highlightWall = (w: WallSegment, color: number) => {
     if (!sceneRef.current) return;
@@ -658,6 +728,7 @@ export default function SceneEditor() {
     measurementsRef.current.push({ line, label: sprite, dist });
     setStatusMsg(`Distanta perete-perete: ${dist.toFixed(2)} m${parallel ? '' : ' (neparalel — aprox)'}`);
     wallPairFirstRef.current = null;
+    clearWallPairPreview();
     // Keep first highlight a moment, then clear all wall outlines on next click
     setTimeout(() => clearWallPairSelection(), 1200);
   };
@@ -1531,6 +1602,8 @@ export default function SceneEditor() {
               const pz = w.w.z1 + w.t * (w.w.z2 - w.w.z1);
               showSnapRing(px, pz, true);
             } else hideSnapRing();
+            // Dotted preview line from first selected wall to hovered wall
+            if (wallPairFirstRef.current) updateWallPairPreview(e.clientX, e.clientY);
           } else {
             const snapped = snapMeasurePt(raw);
             const isSnap = Math.hypot(raw.x - snapped.x, raw.z - snapped.z) > 0.001;
