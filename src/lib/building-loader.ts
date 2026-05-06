@@ -27,6 +27,7 @@ interface DoorData {
   hingeAngle: number;
   kind?: 'swing' | 'sliding' | 'double';
   label?: string;
+  yFlipped?: boolean;
 }
 
 interface WindowData {
@@ -266,7 +267,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       clearcoat: 1.0, clearcoatRoughness: 0.03,
     });
     const DOOR_H = 2.1;
-    const HEADER_THICKNESS = 0.20;
+    const HEADER_THICKNESS = 0.12;  // slim, blends with wall stripes
 
     for (const door of data.doors as DoorData[]) {
       const dw = door.width;
@@ -274,12 +275,17 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const endDeg = ((door.endAngle || 90) % 360 + 360) % 360;
       const startRad = startDeg * Math.PI / 180;
 
-      let arcEndDeg = endDeg;
-      if (arcEndDeg <= startDeg) arcEndDeg += 360;
-      const arcEndRad = arcEndDeg * Math.PI / 180;
+      // Always render shortest arc; sign determines CW vs CCW
+      let span = endDeg - startDeg;
+      while (span > 180) span -= 360;
+      while (span < -180) span += 360;
+      const clockwise = span < 0;
+      const arcEndRad = startRad + span * Math.PI / 180;
 
+      // Closed-direction unit vector in scene XZ; pivot.rotation.y = -startRad
+      // Header center = hinge + (dw/2) * closedDirection
       const cxw = door.x + (dw / 2) * Math.cos(startRad);
-      const czw = door.z + (dw / 2) * Math.sin(startRad);
+      const czw = door.z - (dw / 2) * Math.sin(startRad);  // -sin because three.js Y rot: +X -> (cos,0,-sin)
 
       const headerH = WALL_HEIGHT - DOOR_H;
       if (headerH > 0.05) {
@@ -293,15 +299,13 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       }
 
       if (door.kind === 'sliding') {
-        // Glass panel filling the opening, full DOOR_H
         const glassGeo = new THREE.BoxGeometry(dw, DOOR_H, 0.04);
         const glass = new THREE.Mesh(glassGeo, slidingGlassMat);
         glass.position.set(cxw, DOOR_H / 2, czw);
         glass.rotation.y = -startRad;
         group.add(glass);
       } else {
-        // Swing/double: floor arc + active panel pivot (click to open/close)
-        const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
+        const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, clockwise, 0);
         const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.015, p.y));
         group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
         doorPanels.push({

@@ -217,12 +217,22 @@ def main() -> None:
     poly_paths = [center(p) for p in poly_paths]
     edge_paths = [center(p) for p in edge_paths]
 
-    # Template convention: every PERETI hatch is a wall stripe, no special exterior hatch.
+    # Template convention: every PERETI hatch is a wall stripe.
+    # Filter out non-stripe artifacts via compactness (area / perimeter).
+    # Wall stripes are long+thin -> low compactness (~thickness/2 ~0.05-0.10).
+    # Circles/blobs from ARC-subdivided HATCH boundaries -> high compactness (>0.3).
     hatch_outer = None
     walls = []
     for poly in poly_paths + edge_paths:
         a = poly_area(poly)
         if a < 0.05: continue
+        perim = 0.0
+        for i in range(len(poly) - 1):
+            perim += math.hypot(poly[i + 1][0] - poly[i][0], poly[i + 1][1] - poly[i][1])
+        if perim < 0.01: continue
+        compactness = a / perim
+        if compactness > 0.30 and len(poly) > 20:
+            continue  # circular artifact
         walls.append({"points": poly, "closed": 1, "area": round(a, 4)})
 
     # Doors with label-driven kind
@@ -231,16 +241,18 @@ def main() -> None:
         lbl = nearest_label(r["x_raw"], r["y_raw"], door_labels, max_dist=3.0)
         info = parse_door_label(lbl)
         width = (info["width_cm"] / 100.0) if info["width_cm"] else r["radius"]
-        # Y-flip mirrors angles around X axis: a' = -a (mod 360); arc winding reverses, so start<->end swap
-        sa_flipped = (-r["startAngle"]) % 360.0
-        ea_flipped = (-r["endAngle"]) % 360.0
+        # Y-flip: negate angles (closed direction = -orig_start, open = -orig_end).
+        # Arc winding reverses (CCW->CW); building-loader handles via clockwise param.
+        sa_neg = (-r["startAngle"]) % 360.0
+        ea_neg = (-r["endAngle"]) % 360.0
         doors.append({
             "x": round(r["x_raw"] - cx, 4),
             "z": round(-(r["y_raw"] - cy), 4),
             "width": round(width, 3),
-            "startAngle": round(ea_flipped, 1),
-            "endAngle": round(sa_flipped, 1),
-            "hingeAngle": round(ea_flipped, 1),
+            "startAngle": round(sa_neg, 1),
+            "endAngle": round(ea_neg, 1),
+            "hingeAngle": round(sa_neg, 1),
+            "yFlipped": True,
             "kind": info["kind"],
             "label": lbl,
         })
