@@ -251,14 +251,15 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     }
   }
 
-  // === DOORS (panels only, no frame geometry — walls are solid) ===
+  // === DOORS (header above + subtle floor arc; opening already in wall hatch) ===
   if (data.doors) {
-    const doorArcMat = new THREE.LineBasicMaterial({ color: 0xd4a843, opacity: 0.5, transparent: true });
+    const doorArcMat = new THREE.LineBasicMaterial({ color: 0xd4a843, opacity: 0.4, transparent: true });
+    const headerMat = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
     const DOOR_H = 2.1;
+    const HEADER_THICKNESS = 0.20;
 
     for (const door of data.doors as DoorData[]) {
       const dw = door.width;
-
       const startDeg = ((door.startAngle || 0) % 360 + 360) % 360;
       const endDeg = ((door.endAngle || 90) % 360 + 360) % 360;
       const startRad = startDeg * Math.PI / 180;
@@ -267,16 +268,25 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       if (arcEndDeg <= startDeg) arcEndDeg += 360;
       const arcEndRad = arcEndDeg * Math.PI / 180;
 
-      // Door panel (movable)
-      doorPanels.push({
-        hingeX: door.x, hingeZ: door.z,
-        width: dw, height: DOOR_H,
-        startAngle: startRad, endAngle: arcEndRad,
-      });
+      // Door center = hinge + (width/2) along closed direction
+      const cxw = door.x + (dw / 2) * Math.cos(startRad);
+      const czw = door.z + (dw / 2) * Math.sin(startRad);
 
-      // Arc on floor
+      // Header above door (DOOR_H -> WALL_HEIGHT)
+      const headerH = WALL_HEIGHT - DOOR_H;
+      if (headerH > 0.05) {
+        const hgGeo = new THREE.BoxGeometry(dw, headerH, HEADER_THICKNESS);
+        const header = new THREE.Mesh(hgGeo, headerMat);
+        header.position.set(cxw, DOOR_H + headerH / 2, czw);
+        header.rotation.y = -startRad;
+        header.castShadow = true;
+        header.receiveShadow = true;
+        group.add(header);
+      }
+
+      // Subtle floor arc indicating swing direction
       const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
-      const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.02, p.y));
+      const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.015, p.y));
       group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
     }
   }
