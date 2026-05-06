@@ -141,6 +141,9 @@ export default function SceneEditor() {
   const [drawHint, setDrawHint] = useState<string>('');
   const pendingPlaceRef = useRef<CatalogItem | null>(null);
   const [pendingPlaceItem, setPendingPlaceItem] = useState<CatalogItem | null>(null);
+  const [walkSpeed, setWalkSpeed] = useState(1.0);
+  const walkSpeedRef = useRef(1.0);
+  useEffect(() => { walkSpeedRef.current = walkSpeed; }, [walkSpeed]);
 
   useEffect(() => { currentToolRef.current = currentTool; }, [currentTool]);
 
@@ -1894,7 +1897,8 @@ export default function SceneEditor() {
 
       cam.rotation.set(fpPitchRef.current, fpYawRef.current, 0, 'YXZ');
 
-      const speed = fpKeysRef.current.has('shift') ? 0.16 : 0.08;
+      const baseSpeed = fpKeysRef.current.has('shift') ? 0.16 : 0.08;
+      const speed = baseSpeed * walkSpeedRef.current;
       const keys = fpKeysRef.current;
       const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
       forward.y = 0; forward.normalize();
@@ -2131,43 +2135,94 @@ export default function SceneEditor() {
           </div>
         )}
 
-        {/* ORBIT MODE toolbar */}
+        {/* ORBIT MODE — main top bar (5 primary actions) */}
         {!fpMode && (
           <div
-            className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1.5 rounded-xl z-10"
-            style={{ background: '#fff', boxShadow: 'var(--shadow-lg)' }}
+            className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-2 rounded-2xl z-10"
+            style={{ background: '#fff', boxShadow: '0 6px 24px rgba(0,0,0,0.14)', border: '1px solid #e5e5ea' }}
           >
-            <button onClick={() => rotateSelected(-45)} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>-45°</button>
-            <button onClick={() => rotateSelected(45)} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>+45°</button>
-            <button onClick={() => rotateSelected(90)} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>90°</button>
-            <div className="w-px h-4 mx-0.5" style={{ background: '#e5e5ea' }} />
-            <button onClick={duplicateSelected} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#1d1d1f' }}>Duplica</button>
-            <button onClick={deleteSelected} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#ff3b30' }}>Sterge</button>
-            <button onClick={clearAllObjects} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#ff3b30' }} title="Sterge toate obiectele">X Tot</button>
-            <div className="w-px h-4 mx-0.5" style={{ background: '#e5e5ea' }} />
-            <button onClick={resetCamera} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>3D</button>
-            <button onClick={topView} className="text-[11px] px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors font-medium" style={{ color: '#1d1d1f' }}>2D</button>
-            <button onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }} className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: showCeiling ? '#0071e3' : 'transparent', color: showCeiling ? '#fff' : '#1d1d1f' }}>Tavan</button>
-            <button onClick={() => setOrbitEditMode(!orbitEditMode)} className="text-[11px] px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90" style={{ background: orbitEditMode ? '#f59e0b' : 'transparent', color: orbitEditMode ? '#fff' : '#1d1d1f' }}>{orbitEditMode ? 'Edit ON' : 'Edit'}</button>
-            <button onClick={enterFpMode} className="text-[11px] px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90" style={{ background: '#0071e3', color: '#fff' }}>Walk</button>
-            <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-[11px] px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: measureMode ? '#ff3b30' : 'transparent', color: measureMode ? '#fff' : '#1d1d1f' }}>Masura</button>
+            <button
+              onClick={() => setOrbitEditMode(!orbitEditMode)}
+              className="text-[12px] px-4 py-2 rounded-xl font-semibold transition-all"
+              style={{ background: orbitEditMode ? '#f59e0b' : '#f5f5f7', color: orbitEditMode ? '#fff' : '#1d1d1f' }}
+              title={orbitEditMode ? 'Edit ON: click+drag muta obiecte' : 'Comuta in modul EDITARE'}
+            >
+              {orbitEditMode ? '✏️ EDITARE ON' : '✏️ EDITARE'}
+            </button>
+            <button
+              onClick={enterFpMode}
+              className="text-[12px] px-4 py-2 rounded-xl font-semibold"
+              style={{ background: '#0071e3', color: '#fff' }}
+              title="Intra in modul WALK (mers prin spatiu)"
+            >
+              🚶 WALK-MODE
+            </button>
+            <button
+              onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }}
+              className="text-[12px] px-4 py-2 rounded-xl font-semibold transition-colors"
+              style={{ background: showCeiling ? '#6b7280' : '#f5f5f7', color: showCeiling ? '#fff' : '#1d1d1f' }}
+              title="Toggle tavan"
+            >
+              🏠 TAVAN
+            </button>
+            <button
+              onClick={togglePlanView}
+              className="text-[12px] px-4 py-2 rounded-xl font-semibold transition-colors"
+              style={{ background: viewMode === '2d' ? '#30d158' : '#f5f5f7', color: viewMode === '2d' ? '#fff' : '#1d1d1f' }}
+              title={viewMode === '2d' ? 'Plan 2D blocat (top-down ortho)' : 'Comuta la PLAN 2D'}
+            >
+              {viewMode === '2d' ? '🔒 PLAN 2D' : '📐 PLAN 2D'}
+            </button>
+            <div className="w-px h-6 mx-0.5" style={{ background: '#e5e5ea' }} />
+            {/* Secondary tools */}
+            <button onClick={() => rotateSelected(-45)} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }} title="Roteste -45deg">-45°</button>
+            <button onClick={() => rotateSelected(45)} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }} title="Roteste +45deg">+45°</button>
+            <button onClick={() => rotateSelected(90)} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }} title="Roteste 90deg">90°</button>
+            <button onClick={duplicateSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }}>Duplica</button>
+            <button onClick={deleteSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }}>Sterge</button>
+            <button onClick={clearAllObjects} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }} title="Sterge tot">X Tot</button>
+            <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-[11px] px-2 py-1.5 rounded-lg" style={{ background: measureMode ? '#ff3b30' : 'transparent', color: measureMode ? '#fff' : '#1d1d1f' }}>Masura</button>
           </div>
         )}
 
         {/* WALK MODE HUD */}
         {fpMode && (
           <>
-            {/* Top bar — compact */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full z-10" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
-              <button onClick={exitFpMode} className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: '#ef4444', color: '#fff' }}>ESC Iesire</button>
+            {/* Top bar — walk mode (5 actions: EDITARE, TAVAN, PLAN 2D N/A in walk, SPEED, ESC IESIRE) */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-2xl z-10" style={{ background: 'rgba(15,15,25,0.78)', backdropFilter: 'blur(10px)', boxShadow: '0 6px 24px rgba(0,0,0,0.4)' }}>
               <button
                 onClick={() => { setFpEditMode(!fpEditMode); setShowCatalog(!fpEditMode); setFpAction(null); }}
-                className="text-xs px-3 py-1 rounded-full font-semibold"
+                className="text-xs px-3 py-1.5 rounded-xl font-semibold"
                 style={{ background: fpEditMode ? '#f59e0b' : '#3b82f6', color: '#fff' }}
+                title={fpEditMode ? 'Editare ON: drag obiecte' : 'Comuta editare obiecte'}
               >
-                {fpEditMode ? 'Editare ON' : 'Editare'}
+                ✏️ {fpEditMode ? 'EDITARE ON' : 'EDITARE'}
               </button>
-              <button onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }} className="text-xs px-3 py-1 rounded-full" style={{ background: showCeiling ? '#6b7280' : 'rgba(255,255,255,0.15)', color: '#fff' }}>Tavan</button>
+              <button
+                onClick={() => { setShowCeiling(!showCeiling); if (ceilingRef.current) ceilingRef.current.visible = !showCeiling; }}
+                className="text-xs px-3 py-1.5 rounded-xl font-semibold"
+                style={{ background: showCeiling ? '#6b7280' : 'rgba(255,255,255,0.15)', color: '#fff' }}
+              >
+                🏠 TAVAN
+              </button>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.10)' }}>
+                <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.7)' }}>VITEZA</span>
+                <input
+                  type="range" min={0.3} max={3} step={0.1} value={walkSpeed}
+                  onChange={(e) => setWalkSpeed(parseFloat(e.target.value))}
+                  className="w-24 accent-blue-500"
+                  title={`x${walkSpeed.toFixed(1)} - Shift = sprint`}
+                />
+                <span className="text-[10px] font-mono w-8 text-right" style={{ color: '#fff' }}>x{walkSpeed.toFixed(1)}</span>
+              </div>
+              <button
+                onClick={exitFpMode}
+                className="text-xs px-3 py-1.5 rounded-xl font-semibold"
+                style={{ background: '#ef4444', color: '#fff' }}
+                title="Iesi din walk mode (ESC)"
+              >
+                ✕ ESC IESIRE
+              </button>
             </div>
 
             {/* Bottom HUD */}
