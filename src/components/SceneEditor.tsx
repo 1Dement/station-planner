@@ -46,22 +46,50 @@ export default function SceneEditor() {
     setViewMode((m) => {
       const next = m === '3d' ? '2d' : '3d';
       const orbit = orbitRef.current;
-      const cam = cameraRef.current;
-      if (!orbit || !cam) return next;
+      const persp = cameraRef.current;
+      const renderer = rendererRef.current;
+      const renderPass = renderPassRef.current;
+      const ssao = ssaoPassRef.current;
+      if (!orbit || !persp || !renderer) return next;
+
       if (next === '2d') {
-        // Lock to top-down: camera straight above target, no rotation, only pan + zoom (CAD plan style)
+        // Switch to ORTHOGRAPHIC top-down (true CAD plan view, zero perspective).
+        const w = renderer.domElement.clientWidth;
+        const h = renderer.domElement.clientHeight;
+        const aspect = w / h;
+        const viewW = 25; // initial visible width in meters; user pans/zooms
+        const viewH = viewW / aspect;
+        let ortho = orthoCameraRef.current;
+        if (!ortho) {
+          ortho = new THREE.OrthographicCamera(-viewW / 2, viewW / 2, viewH / 2, -viewH / 2, 0.1, 500);
+          orthoCameraRef.current = ortho;
+        } else {
+          ortho.left = -viewW / 2; ortho.right = viewW / 2;
+          ortho.top = viewH / 2; ortho.bottom = -viewH / 2;
+        }
         const tgt = orbit.target;
-        const dist = Math.max(20, cam.position.distanceTo(tgt));
-        cam.position.set(tgt.x, dist, tgt.z + 0.001); // tiny Z offset to keep up vector valid
-        cam.up.set(0, 0, -1); // top-down: -Z is "up" on screen so X right Y up matches plan
-        cam.lookAt(tgt);
+        ortho.position.set(tgt.x, 100, tgt.z);
+        ortho.up.set(0, 0, -1);
+        ortho.lookAt(tgt);
+        ortho.zoom = 1;
+        ortho.updateProjectionMatrix();
+
+        cameraRef.current = ortho as unknown as THREE.PerspectiveCamera;
+        if (renderPass) renderPass.camera = ortho;
+        if (ssao) ssao.camera = ortho;
+        orbit.object = ortho;
+
         orbit.minPolarAngle = 0;
         orbit.maxPolarAngle = 0;
         orbit.enableRotate = false;
         orbit.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
       } else {
-        // Restore orbit
-        cam.up.set(0, 1, 0);
+        // Back to perspective + free orbit
+        cameraRef.current = persp;
+        if (renderPass) renderPass.camera = persp;
+        if (ssao) ssao.camera = persp;
+        orbit.object = persp;
+        persp.up.set(0, 1, 0);
         orbit.minPolarAngle = 0;
         orbit.maxPolarAngle = Math.PI / 2.05;
         orbit.enableRotate = true;
@@ -74,6 +102,8 @@ export default function SceneEditor() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const composerRef = useRef<any>(null);
+  const renderPassRef = useRef<RenderPass | null>(null);
+  const ssaoPassRef = useRef<SSAOPass | null>(null);
   const orbitRef = useRef<OrbitControls | null>(null);
   const objectsRef = useRef<PlacedObject[]>([]);
   const selectedRef = useRef<PlacedObject | null>(null);
@@ -768,8 +798,11 @@ export default function SceneEditor() {
 
     // Post-processing: SSAO for depth
     const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+    renderPassRef.current = renderPass;
     const ssaoPass = new SSAOPass(scene, camera, canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+    ssaoPassRef.current = ssaoPass;
     ssaoPass.kernelRadius = 8;
     ssaoPass.minDistance = 0.005;
     ssaoPass.maxDistance = 0.1;
@@ -796,6 +829,14 @@ export default function SceneEditor() {
       const h = canvasRef.current.clientHeight;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      const ortho = orthoCameraRef.current;
+      if (ortho) {
+        const aspect = w / h;
+        const baseW = (ortho.right - ortho.left);
+        const baseH = baseW / aspect;
+        ortho.top = baseH / 2; ortho.bottom = -baseH / 2;
+        ortho.updateProjectionMatrix();
+      }
       renderer.setSize(w, h);
       composer.setSize(w, h);
     };
