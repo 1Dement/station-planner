@@ -631,6 +631,8 @@ export default function SceneEditor() {
   };
   const hideSnapRing = () => { if (snapRingRef.current) snapRingRef.current.visible = false; };
 
+  // Cache the last hover snap so click commits to the same point user just previewed
+  const lastSnapHitRef = useRef<{ p: THREE.Vector3; snapped: boolean; kind: 'vertex' | 'edge' | 'surface' | 'floor' } | null>(null);
   // Track currently-hovered gold marker so we can revert its color on hover-out
   const hoveredMarkerRef = useRef<THREE.Mesh | null>(null);
   const setHoveredMarker = (m: THREE.Mesh | null) => {
@@ -1116,8 +1118,9 @@ export default function SceneEditor() {
       return;
     }
     if (!sceneRef.current) return;
-    // Polycam-style 3D snap (vertex > edge > surface > floor)
-    const hit3d = get3DSnapHit(clientX, clientY);
+    // Prefer the last hover snap (sticky — what user saw is what they get)
+    let hit3d = lastSnapHitRef.current;
+    if (!hit3d) hit3d = get3DSnapHit(clientX, clientY);
     let pt: THREE.Vector3;
     if (hit3d) {
       pt = hit3d.p.clone();
@@ -1968,15 +1971,19 @@ export default function SceneEditor() {
           if (hoveredDot) {
             // Marker turns red itself — hide the ball so we don't double-render
             hideSnapRing();
+            const mp = hoveredDot.position.clone();
+            lastSnapHitRef.current = { p: mp, snapped: true, kind: 'vertex' };
           } else {
             const hit3d = get3DSnapHit(e.clientX, e.clientY);
             if (hit3d) {
               showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, viewMode === '2d' ? 0.06 : Math.max(0.06, hit3d.p.y));
-            } else hideSnapRing();
+              lastSnapHitRef.current = hit3d;
+            } else { hideSnapRing(); lastSnapHitRef.current = null; }
           }
         }
       } else {
         setHoveredMarker(null);
+        lastSnapHitRef.current = null;
       }
 
       // Wall draw tool — update preview + snap marker
@@ -2930,11 +2937,16 @@ export default function SceneEditor() {
             }
           }
           setHoveredMarker(hoveredDot);
-          if (hoveredDot) hideSnapRing();
-          else {
+          if (hoveredDot) {
+            hideSnapRing();
+            const mp = hoveredDot.position.clone();
+            lastSnapHitRef.current = { p: mp, snapped: true, kind: 'vertex' };
+          } else {
             const hit3d = get3DSnapHit(e.clientX, e.clientY);
-            if (hit3d) showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, Math.max(0.06, hit3d.p.y));
-            else hideSnapRing();
+            if (hit3d) {
+              showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, Math.max(0.06, hit3d.p.y));
+              lastSnapHitRef.current = hit3d;
+            } else { hideSnapRing(); lastSnapHitRef.current = null; }
           }
         }
         return;
