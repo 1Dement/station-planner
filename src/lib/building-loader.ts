@@ -25,6 +25,8 @@ interface DoorData {
   startAngle: number;
   endAngle: number;
   hingeAngle: number;
+  kind?: 'swing' | 'sliding' | 'double';
+  label?: string;
 }
 
 interface WindowData {
@@ -33,6 +35,9 @@ interface WindowData {
   depth: number;
   horizontal: number;
   points: number[][];
+  sillM?: number;
+  fullHeight?: boolean;
+  label?: string;
 }
 
 interface BuildingJSON {
@@ -251,10 +256,15 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     }
   }
 
-  // === DOORS (header above + subtle floor arc; opening already in wall hatch) ===
+  // === DOORS (header above + arc on floor; sliding gets glass strip instead of arc) ===
   if (data.doors) {
     const doorArcMat = new THREE.LineBasicMaterial({ color: 0xd4a843, opacity: 0.4, transparent: true });
     const headerMat = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
+    const slidingGlassMat = new THREE.MeshPhysicalMaterial({
+      color: 0xddf0ff, roughness: 0.02, metalness: 0.05,
+      transparent: true, opacity: 0.18, side: THREE.DoubleSide,
+      clearcoat: 1.0, clearcoatRoughness: 0.03,
+    });
     const DOOR_H = 2.1;
     const HEADER_THICKNESS = 0.20;
 
@@ -268,11 +278,9 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       if (arcEndDeg <= startDeg) arcEndDeg += 360;
       const arcEndRad = arcEndDeg * Math.PI / 180;
 
-      // Door center = hinge + (width/2) along closed direction
       const cxw = door.x + (dw / 2) * Math.cos(startRad);
       const czw = door.z + (dw / 2) * Math.sin(startRad);
 
-      // Header above door (DOOR_H -> WALL_HEIGHT)
       const headerH = WALL_HEIGHT - DOOR_H;
       if (headerH > 0.05) {
         const hgGeo = new THREE.BoxGeometry(dw, headerH, HEADER_THICKNESS);
@@ -284,10 +292,19 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         group.add(header);
       }
 
-      // Subtle floor arc indicating swing direction
-      const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
-      const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.015, p.y));
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
+      if (door.kind === 'sliding') {
+        // Glass panel filling the opening, full DOOR_H
+        const glassGeo = new THREE.BoxGeometry(dw, DOOR_H, 0.04);
+        const glass = new THREE.Mesh(glassGeo, slidingGlassMat);
+        glass.position.set(cxw, DOOR_H / 2, czw);
+        glass.rotation.y = -startRad;
+        group.add(glass);
+      } else {
+        // Swing/double: floor arc shows direction
+        const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
+        const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.015, p.y));
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
+      }
     }
   }
 
@@ -300,8 +317,6 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     });
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x606060, roughness: 0.25, metalness: 0.7 });
     const subWallMat = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
-    const WIN_SILL = 0.9;
-    const WIN_HEIGHT = 1.4;
     const WIN_WALL_H = WALL_HEIGHT;
 
     for (const win of data.windows as WindowData[]) {
@@ -311,126 +326,52 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const angle = isHoriz ? 0 : Math.PI / 2;
       const wallThick = 0.20;
 
-      // Wall BELOW window (podea → pervaz)
-      const belowGeo = new THREE.BoxGeometry(win.width, WIN_SILL, wallThick);
-      const below = new THREE.Mesh(belowGeo, subWallMat);
-      below.position.set(win.x, WIN_SILL / 2, win.z);
-      below.rotation.y = angle;
-      below.castShadow = true;
-      group.add(below);
+      // Per-window sill + height from label
+      const sill = win.fullHeight ? 0 : (win.sillM ?? 0.9);
+      const winHeight = win.fullHeight ? WIN_WALL_H : Math.max(0.4, WIN_WALL_H - sill - 0.1);
 
-      // Wall ABOVE window (top geam → tavan)
-      const aboveH = WIN_WALL_H - WIN_SILL - WIN_HEIGHT;
+      // Wall BELOW window (skip if full-height vitrina)
+      if (sill > 0.05) {
+        const belowGeo = new THREE.BoxGeometry(win.width, sill, wallThick);
+        const below = new THREE.Mesh(belowGeo, subWallMat);
+        below.position.set(win.x, sill / 2, win.z);
+        below.rotation.y = angle;
+        below.castShadow = true;
+        group.add(below);
+      }
+
+      // Wall ABOVE window
+      const aboveH = WIN_WALL_H - sill - winHeight;
       if (aboveH > 0.05) {
         const aboveGeo = new THREE.BoxGeometry(win.width, aboveH, wallThick);
         const above = new THREE.Mesh(aboveGeo, subWallMat);
-        above.position.set(win.x, WIN_SILL + WIN_HEIGHT + aboveH / 2, win.z);
+        above.position.set(win.x, sill + winHeight + aboveH / 2, win.z);
         above.rotation.y = angle;
         above.castShadow = true;
         group.add(above);
       }
 
       // Glass panel
-      const glassGeo = new THREE.BoxGeometry(win.width, WIN_HEIGHT, 0.02);
+      const glassGeo = new THREE.BoxGeometry(win.width, winHeight, 0.02);
       const glass = new THREE.Mesh(glassGeo, glassMat);
-      glass.position.set(win.x, WIN_SILL + WIN_HEIGHT / 2, win.z);
+      glass.position.set(win.x, sill + winHeight / 2, win.z);
       glass.rotation.y = angle;
       group.add(glass);
 
-      // Frame top + sill
+      // Frames top + sill (skip frame on full-height bottom)
       const ft = new THREE.Mesh(new THREE.BoxGeometry(win.width + 0.04, 0.03, wallThick + 0.02), frameMat);
-      ft.position.set(win.x, WIN_SILL + WIN_HEIGHT, win.z);
+      ft.position.set(win.x, sill + winHeight, win.z);
       ft.rotation.y = angle;
       group.add(ft);
 
-      const fs = new THREE.Mesh(new THREE.BoxGeometry(win.width + 0.04, 0.03, wallThick + 0.04), frameMat);
-      fs.position.set(win.x, WIN_SILL, win.z);
-      fs.rotation.y = angle;
-      group.add(fs);
-    }
-
-    // === AUTO SLIDING DOOR — find gap between front windows ===
-    // Deduplicate windows by position
-    const uniqueWins: WindowData[] = [];
-    for (const w of data.windows as WindowData[]) {
-      if (!uniqueWins.some(u => Math.abs(u.x - w.x) < 0.3 && Math.abs(u.z - w.z) < 0.3)) {
-        uniqueWins.push(w);
+      if (sill > 0.05) {
+        const fs = new THREE.Mesh(new THREE.BoxGeometry(win.width + 0.04, 0.03, wallThick + 0.04), frameMat);
+        fs.position.set(win.x, sill, win.z);
+        fs.rotation.y = angle;
+        group.add(fs);
       }
     }
-    // Find pairs of windows on same Z with a gap between them
-    for (let i = 0; i < uniqueWins.length; i++) {
-      for (let j = i + 1; j < uniqueWins.length; j++) {
-        const w1 = uniqueWins[i], w2 = uniqueWins[j];
-        if (Math.abs(w1.z - w2.z) > 0.5) continue;
-        // Calculate gap
-        const left = w1.x < w2.x ? w1 : w2;
-        const right = w1.x < w2.x ? w2 : w1;
-        const gapLeft = left.x + left.width / 2;
-        const gapRight = right.x - right.width / 2;
-        const gapW = gapRight - gapLeft;
-        if (gapW < 0.8 || gapW > 4) continue; // gap must be 0.8-4m
 
-        const doorX = (gapLeft + gapRight) / 2;
-        const doorZ = (w1.z + w2.z) / 2;
-        const doorW = gapW;
-        const DOOR_H = 2.3;
-
-        if (true) {
-          const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.3, metalness: 0.6 });
-
-          // Frame posts
-          const postGeo = new THREE.BoxGeometry(0.06, DOOR_H, 0.12);
-          const post1 = new THREE.Mesh(postGeo, doorFrameMat);
-          post1.position.set(doorX - doorW/2, DOOR_H/2, doorZ);
-          group.add(post1);
-          const post2 = new THREE.Mesh(postGeo, doorFrameMat);
-          post2.position.set(doorX + doorW/2, DOOR_H/2, doorZ);
-          group.add(post2);
-
-          // Top frame
-          const topGeo = new THREE.BoxGeometry(doorW + 0.06, 0.15, 0.12);
-          const topFrame = new THREE.Mesh(topGeo, doorFrameMat);
-          topFrame.position.set(doorX, DOOR_H, doorZ);
-          group.add(topFrame);
-
-          // Glass doors (2 panels, slightly open)
-          const panelW = doorW / 2 - 0.05;
-          const doorGlassMat = new THREE.MeshPhysicalMaterial({
-            color: 0xddf0ff, roughness: 0.02, metalness: 0.05,
-            transparent: true, opacity: 0.15, side: THREE.DoubleSide,
-            clearcoat: 1.0, clearcoatRoughness: 0.03,
-          });
-          const panelGeo = new THREE.BoxGeometry(panelW, DOOR_H - 0.2, 0.03);
-          const leftDoor = new THREE.Mesh(panelGeo, doorGlassMat);
-          leftDoor.position.set(doorX - panelW/2 - 0.02, DOOR_H/2, doorZ);
-          group.add(leftDoor);
-          const rightDoor = new THREE.Mesh(panelGeo, doorGlassMat);
-          rightDoor.position.set(doorX + panelW/2 + 0.02, DOOR_H/2, doorZ);
-          group.add(rightDoor);
-
-          // Bottom rail
-          const rail = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.03, 0.08), doorFrameMat);
-          rail.position.set(doorX, 0.015, doorZ);
-          group.add(rail);
-
-          // Sensor on top
-          const sensorMat = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
-          const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), sensorMat);
-          sensor.position.set(doorX, DOOR_H + 0.05, doorZ + 0.06);
-          group.add(sensor);
-
-          // Wall above door — uniform with other doors
-          const aboveDoorH = WIN_WALL_H - DOOR_H;
-          if (aboveDoorH > 0.05) {
-            const aboveGeo = new THREE.BoxGeometry(doorW + 0.06, aboveDoorH, 0.20);
-            const above = new THREE.Mesh(aboveGeo, subWallMat);
-            above.position.set(doorX, DOOR_H + aboveDoorH/2, doorZ);
-            above.castShadow = true;
-            group.add(above);
-          }
-        }
-      }
-    }
   }
 
   // Also expand bounds from placed objects

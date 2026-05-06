@@ -3,6 +3,36 @@
     {
       "points": [
         [
+          -4.2973,
+          -3.8559
+        ],
+        [
+          -4.9097,
+          -3.8559
+        ],
+        [
+          -4.9097,
+          -3.9043
+        ],
+        [
+          -4.9097,
+          -3.9527
+        ],
+        [
+          -4.2973,
+          -3.9527
+        ],
+        [
+          -4.2973,
+          -3.8559
+        ]
+      ],
+      "closed": 1,
+      "area": 0.0593
+    },
+    {
+      "points": [
+        [
           -1.29,
           7.3166
         ],
@@ -15,6 +45,14 @@
           8.2697
         ],
         [
+          -7.1291,
+          8.2697
+        ],
+        [
+          -7.1962,
+          8.2697
+        ],
+        [
           -7.1962,
           8.2697
         ],
@@ -24,6 +62,10 @@
         ],
         [
           -7.2633,
+          6.438
+        ],
+        [
+          -7.1291,
           6.438
         ],
         [
@@ -164,6 +206,10 @@
         ],
         [
           -5.1166,
+          4.0458
+        ],
+        [
+          -5.0623,
           4.0458
         ],
         [
@@ -433,6 +479,10 @@
           -1.7543
         ],
         [
+          -5.9593,
+          -1.7543
+        ],
+        [
           -4.2973,
           -1.7543
         ],
@@ -514,6 +564,10 @@
         ],
         [
           -1.9909,
+          -9.5146
+        ],
+        [
+          -1.9909,
           -3.1645
         ],
         [
@@ -544,6 +598,10 @@
       "points": [
         [
           7.2633,
+          3.884
+        ],
+        [
+          5.1763,
           3.884
         ],
         [
@@ -616,6 +674,10 @@
         ],
         [
           7.1233,
+          -9.5146
+        ],
+        [
+          7.1233,
           -9.3746
         ]
       ],
@@ -676,6 +738,10 @@
         ],
         [
           -7.1962,
+          -4.8735
+        ],
+        [
+          -7.2633,
           -4.8735
         ],
         [
@@ -776,6 +842,10 @@
         ],
         [
           -7.1291,
+          -1.6865
+        ],
+        [
+          -7.1291,
           4.2137
         ],
         [
@@ -789,6 +859,10 @@
         [
           -7.1291,
           4.3476
+        ],
+        [
+          -7.1291,
+          5.838
         ],
         [
           -7.1291,
@@ -889,28 +963,14 @@
   "objects": [],
   "doors": [
     {
-      "x": 7.1053,
-      "z": -5.269,
-      "width": 1.112,
-      "startAngle": 180.0,
-      "endAngle": 274.5,
-      "hingeAngle": 180.0
-    },
-    {
-      "x": 7.1933,
-      "z": -7.4775,
-      "width": 1.1,
-      "startAngle": 90.0,
-      "endAngle": 180.0,
-      "hingeAngle": 90.0
-    },
-    {
       "x": -2.6307,
       "z": -3.2128,
       "width": 0.9,
       "startAngle": 90.0,
       "endAngle": 180.0,
-      "hingeAngle": 90.0
+      "hingeAngle": 90.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -7.1962,
@@ -918,7 +978,9 @@
       "width": 0.9,
       "startAngle": 90.0,
       "endAngle": 180.0,
-      "hingeAngle": 90.0
+      "hingeAngle": 90.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -7.1962,
@@ -926,7 +988,9 @@
       "width": 0.9,
       "startAngle": 90.0,
       "endAngle": 180.0,
-      "hingeAngle": 90.0
+      "hingeAngle": 90.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -6.8593,
@@ -934,7 +998,9 @@
       "width": 0.9,
       "startAngle": 0.0,
       "endAngle": 90.0,
-      "hingeAngle": 0.0
+      "hingeAngle": 0.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -6.0022,
@@ -942,7 +1008,9 @@
       "width": 0.857,
       "startAngle": 180.0,
       "endAngle": 248.9,
-      "hingeAngle": 180.0
+      "hingeAngle": 180.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -4.9097,
@@ -950,7 +1018,9 @@
       "width": 0.9,
       "startAngle": 90.0,
       "endAngle": 180.0,
-      "hingeAngle": 90.0
+      "hingeAngle": 90.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -6.9671,
@@ -958,7 +1028,9 @@
       "width": 0.9,
       "startAngle": 0.0,
       "endAngle": 90.0,
-      "hingeAngle": 0.0
+      "hingeAngle": 0.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -4.8896,
@@ -966,7 +1038,9 @@
       "width": 0.8,
       "startAngle": 0.0,
       "endAngle": 90.0,
-      "hingeAngle": 0.0
+      "hingeAngle": 0.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -5.1689,
@@ -974,7 +1048,9 @@
       "width": 0.902,
       "startAngle": 86.7,
       "endAngle": 180.0,
-      "hingeAngle": 86.7
+      "hingeAngle": 86.7,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -2.4267,
@@ -982,7 +1058,9 @@
       "width": 0.8,
       "startAngle": 0.0,
       "endAngle": 90.0,
-      "hingeAngle": 0.0
+      "hingeAngle": 0.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -0.0495,
@@ -990,7 +1068,9 @@
       "width": 0.9,
       "startAngle": 90.0,
       "endAngle": 180.0,
-      "hingeAngle": 90.0
+      "hingeAngle": 90.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -0.0495,
@@ -998,7 +1078,9 @@
       "width": 0.9,
       "startAngle": 90.0,
       "endAngle": 180.0,
-      "hingeAngle": 90.0
+      "hingeAngle": 90.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": -7.1962,
@@ -1006,7 +1088,9 @@
       "width": 0.9,
       "startAngle": 180.0,
       "endAngle": 270.0,
-      "hingeAngle": 180.0
+      "hingeAngle": 180.0,
+      "kind": "swing",
+      "label": "Usa"
     },
     {
       "x": 0.9224,
@@ -1014,7 +1098,9 @@
       "width": 0.9,
       "startAngle": 0.0,
       "endAngle": 90.0,
-      "hingeAngle": 0.0
+      "hingeAngle": 0.0,
+      "kind": "double",
+      "label": "Usa dubla"
     },
     {
       "x": 2.7224,
@@ -1022,7 +1108,9 @@
       "width": 0.9,
       "startAngle": 90.0,
       "endAngle": 180.0,
-      "hingeAngle": 90.0
+      "hingeAngle": 90.0,
+      "kind": "double",
+      "label": "Usa dubla"
     },
     {
       "x": -5.5795,
@@ -1030,80 +1118,116 @@
       "width": 0.9,
       "startAngle": 270.0,
       "endAngle": 0.0,
-      "hingeAngle": 270.0
+      "hingeAngle": 270.0,
+      "kind": "swing",
+      "label": "Usa"
+    },
+    {
+      "x": 7.1933,
+      "z": -6.3775,
+      "width": 0.2,
+      "startAngle": 90.0,
+      "endAngle": 270.0,
+      "hingeAngle": 90.0,
+      "kind": "sliding",
+      "label": "Usa Glisanta"
     }
   ],
   "windows": [
     {
-      "x": -5.0514,
-      "z": 5.3964,
-      "width": 2.142,
-      "depth": 0.183,
+      "x": 7.1933,
+      "z": -8.4261,
+      "width": 1.897,
+      "depth": 0.14,
       "horizontal": 0,
+      "sillM": 0.0,
+      "fullHeight": true,
+      "label": "Geam total",
       "points": []
     },
     {
-      "x": -4.2274,
-      "z": -2.941,
-      "width": 1.433,
-      "depth": 0.21,
+      "x": 7.1933,
+      "z": -3.114,
+      "width": 4.31,
+      "depth": 0.14,
       "horizontal": 0,
+      "sillM": 0.0,
+      "fullHeight": true,
+      "label": "Geam total",
       "points": []
     },
     {
-      "x": -7.2186,
-      "z": -7.6578,
-      "width": 1.355,
+      "x": 7.1933,
+      "z": 1.3066,
+      "width": 4.05,
+      "depth": 0.14,
+      "horizontal": 0,
+      "sillM": 0.0,
+      "fullHeight": true,
+      "label": "Geam total",
+      "points": []
+    },
+    {
+      "x": 7.1933,
+      "z": 6.6279,
+      "width": 5.488,
+      "depth": 0.14,
+      "horizontal": 0,
+      "sillM": 0.0,
+      "fullHeight": true,
+      "label": "Geam total",
+      "points": []
+    },
+    {
+      "x": 4.9229,
+      "z": 9.4432,
+      "width": 4.401,
+      "depth": 0.143,
+      "horizontal": 1,
+      "sillM": 0.0,
+      "fullHeight": true,
+      "label": "Geam total",
+      "points": []
+    },
+    {
+      "x": -7.1962,
+      "z": 6.138,
+      "width": 0.6,
       "depth": 0.134,
       "horizontal": 0,
+      "sillM": 1.8,
+      "fullHeight": false,
+      "label": "geam h pervaz 1.80m",
       "points": []
     },
     {
-      "x": -0.013,
-      "z": 4.4304,
-      "width": 0.788,
-      "depth": 0.219,
+      "x": -7.1962,
+      "z": -2.7301,
+      "width": 0.6,
+      "depth": 0.134,
       "horizontal": 0,
+      "sillM": 1.8,
+      "fullHeight": false,
+      "label": "geam h pervaz 1.80m",
       "points": []
     },
     {
-      "x": -3.4423,
-      "z": 4.2583,
-      "width": 1.296,
+      "x": -7.1962,
+      "z": -4.6485,
+      "width": 0.45,
       "depth": 0.134,
-      "horizontal": 1,
-      "points": []
-    },
-    {
-      "x": -5.0193,
-      "z": -1.7317,
-      "width": 1.584,
-      "depth": 0.068,
-      "horizontal": 1,
-      "points": []
-    },
-    {
-      "x": -1.0545,
-      "z": 4.303,
-      "width": 0.94,
-      "depth": 0.134,
-      "horizontal": 1,
-      "points": []
-    },
-    {
-      "x": -6.4163,
-      "z": -3.9204,
-      "width": 0.858,
-      "depth": 0.097,
-      "horizontal": 1,
+      "horizontal": 0,
+      "sillM": 1.8,
+      "fullHeight": false,
+      "label": "geam h pervaz 1.80m",
       "points": []
     }
   ],
   "_meta": {
-    "source": "RLVEU_CURAT.dxf",
-    "originalCenterStereo70": [
-      13.3892,
-      11.847
+    "source": "Pipera_omw_preparat.dxf",
+    "originalCenter": [
+      36.7207,
+      11.6162
     ],
     "extents": {
       "minX": -7.2633,
@@ -1114,13 +1238,15 @@
       "heightM": 19.0293
     },
     "counts": {
-      "polyPaths": 1,
-      "edgePaths": 11,
-      "extraPolys": 0,
-      "wallsOut": 9,
-      "doorsOut": 18,
+      "wallsOut": 10,
+      "doorsOut": 17,
       "windowsOut": 8,
-      "hasHatchOuter": true
+      "doorsByKind": {
+        "swing": 14,
+        "double": 2,
+        "sliding": 1
+      },
+      "windowsFullHeight": 5
     }
   }
 }
