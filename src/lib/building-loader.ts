@@ -584,18 +584,21 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     canopyGroup.userData = { type: 'canopy' };
     // Find sliding door if any to position canopy in front of entrance
     const slidingDoor = (data.doors || []).find(d => (d as DoorData).kind === 'sliding');
-    let cx = extMaxX + 7; // fallback east
+    let cx = extMaxX + 12; // fallback east
     let cz = (extMinZ + extMaxZ) / 2;
     let canopyRotY = 0;
     if (slidingDoor) {
-      const sa = slidingDoor.startAngle * Math.PI / 180;
-      // outward normal of door (perpendicular to closed direction): rotate (1,0,0) by sa+90 around Y
-      const outX = Math.sin(sa);
-      const outZ = Math.cos(sa);
-      const dist = 8;
-      cx = slidingDoor.x + outX * dist;
-      cz = slidingDoor.z + outZ * dist;
-      canopyRotY = sa; // align canopy long axis perpendicular to door
+      // Outward direction = from building center towards door, then beyond
+      const bcx = (extMinX + extMaxX) / 2;
+      const bcz = (extMinZ + extMaxZ) / 2;
+      let dx = slidingDoor.x - bcx;
+      let dz = slidingDoor.z - bcz;
+      const dlen = Math.hypot(dx, dz) || 1;
+      dx /= dlen; dz /= dlen;
+      const dist = 18; // ~18m from building center, past the door
+      cx = bcx + dx * dist;
+      cz = bcz + dz * dist;
+      canopyRotY = Math.atan2(dx, dz); // align canopy long axis perpendicular to outward
     }
     const canopyW = 6, canopyD = 12, canopyH = 5;
 
