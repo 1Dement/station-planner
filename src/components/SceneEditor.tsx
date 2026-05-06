@@ -737,35 +737,38 @@ export default function SceneEditor() {
 
   // === Walk-mode drop indicator (ground rect + crosshair) ===
   const ensureDropIndicator = (): THREE.Group => {
-    if (dropIndicatorRef.current) return dropIndicatorRef.current;
-    const g = new THREE.Group();
-    g.userData = { type: 'dropIndicator' };
-    // Filled translucent rect (footprint)
-    const rect = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0x30d158, transparent: true, opacity: 0.25, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
-    );
-    rect.rotation.x = -Math.PI / 2;
-    rect.renderOrder = 9990;
-    rect.name = 'dropRect';
-    g.add(rect);
-    // Outline (4 segments)
-    const outlineMat = new THREE.LineBasicMaterial({ color: 0x30d158, transparent: true, opacity: 0.95, depthTest: false });
-    const outlineGeo = new THREE.BufferGeometry();
-    const outline = new THREE.LineLoop(outlineGeo, outlineMat);
-    outline.renderOrder = 9991;
-    outline.name = 'dropOutline';
-    g.add(outline);
-    // Cross at center
-    const crossMat = new THREE.LineBasicMaterial({ color: 0x30d158, transparent: true, opacity: 0.85, depthTest: false });
-    const crossGeo = new THREE.BufferGeometry();
-    const cross = new THREE.LineSegments(crossGeo, crossMat);
-    cross.renderOrder = 9992;
-    cross.name = 'dropCross';
-    g.add(cross);
-    g.visible = false;
-    sceneRef.current?.add(g);
-    dropIndicatorRef.current = g;
+    let g = dropIndicatorRef.current;
+    if (!g) {
+      g = new THREE.Group();
+      g.userData = { type: 'dropIndicator' };
+      // Filled translucent rect (footprint)
+      const rect = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ color: 0x30d158, transparent: true, opacity: 0.45, depthTest: false, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })
+      );
+      rect.rotation.x = -Math.PI / 2;
+      rect.renderOrder = 99990;
+      rect.name = 'dropRect';
+      g.add(rect);
+      // Outline (4 segments)
+      const outlineMat = new THREE.LineBasicMaterial({ color: 0x00ff66, transparent: true, opacity: 1.0, depthTest: false, toneMapped: false });
+      const outlineGeo = new THREE.BufferGeometry();
+      const outline = new THREE.LineLoop(outlineGeo, outlineMat);
+      outline.renderOrder = 99991;
+      outline.name = 'dropOutline';
+      g.add(outline);
+      // Cross at center
+      const crossMat = new THREE.LineBasicMaterial({ color: 0x00ff66, transparent: true, opacity: 0.9, depthTest: false, toneMapped: false });
+      const crossGeo = new THREE.BufferGeometry();
+      const cross = new THREE.LineSegments(crossGeo, crossMat);
+      cross.renderOrder = 99992;
+      cross.name = 'dropCross';
+      g.add(cross);
+      g.visible = false;
+      dropIndicatorRef.current = g;
+    }
+    // Always reattach if scene was rebuilt
+    if (sceneRef.current && g.parent !== sceneRef.current) sceneRef.current.add(g);
     return g;
   };
   const updateDropIndicator = (obj: PlacedObject, x: number, z: number) => {
