@@ -326,6 +326,8 @@ export default function SceneEditor() {
   // Auto-measure labels visibility toggle (independent of 2D/3D view)
   const [showMeasures, setShowMeasures] = useState(false);
   const showMeasuresRef = useRef(false);
+  // Snap target markers (dots at every wall vertex / inflection)
+  const snapMarkersGroupRef = useRef<THREE.Group | null>(null);
   const dragGhostRef = useRef<THREE.Mesh | null>(null);
   const autoMeasuresRef = useRef<THREE.Group | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
@@ -342,7 +344,11 @@ export default function SceneEditor() {
   useEffect(() => { roomWidthRef.current = roomWidth; }, [roomWidth]);
   useEffect(() => { roomDepthRef.current = roomDepth; }, [roomDepth]);
   useEffect(() => { fpModeRef.current = fpMode; }, [fpMode]);
-  useEffect(() => { measureModeRef.current = measureMode; if (!measureMode) { clearMeasurePreview(); measurePt1Ref.current = null; clearWallPairSelection(); hideSnapRing(); } }, [measureMode]);
+  useEffect(() => {
+    measureModeRef.current = measureMode;
+    setSnapMarkersVisible(measureMode);
+    if (!measureMode) { clearMeasurePreview(); measurePt1Ref.current = null; clearWallPairSelection(); hideSnapRing(); }
+  }, [measureMode]);
   useEffect(() => { measureSubModeRef.current = measureSubMode; clearMeasurePreview(); measurePt1Ref.current = null; clearWallPairSelection(); }, [measureSubMode]);
   useEffect(() => {
     showMeasuresRef.current = showMeasures;
@@ -554,6 +560,45 @@ export default function SceneEditor() {
     measurePt1Ref.current = null;
     measureLineRef.current = null;
     measureLabelRef.current = null;
+  };
+
+  // === Persistent vertex snap markers (small dots at every wall corner) ===
+  const buildSnapMarkers = () => {
+    if (!sceneRef.current) return;
+    // Clean previous
+    if (snapMarkersGroupRef.current) {
+      sceneRef.current.remove(snapMarkersGroupRef.current);
+      snapMarkersGroupRef.current.traverse((o) => {
+        if ((o as THREE.Mesh).geometry) (o as THREE.Mesh).geometry.dispose();
+        if ((o as THREE.Mesh).material) ((o as THREE.Mesh).material as THREE.Material).dispose();
+      });
+    }
+    const group = new THREE.Group();
+    group.userData = { type: 'snapMarkers' };
+    group.visible = false;
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, toneMapped: false });
+    const dotGeo = new THREE.SphereGeometry(0.06, 10, 8);
+    // De-duplicate vertices from wall segments
+    const seen = new Set<string>();
+    const verts: Array<[number, number]> = [];
+    for (const w of wallSegmentsRef.current) {
+      for (const [x, z] of [[w.x1, w.z1], [w.x2, w.z2]]) {
+        const k = `${x.toFixed(3)},${z.toFixed(3)}`;
+        if (!seen.has(k)) { seen.add(k); verts.push([x, z]); }
+      }
+    }
+    for (const [x, z] of verts) {
+      const m = new THREE.Mesh(dotGeo, dotMat);
+      m.position.set(x, 0.04, z);
+      m.renderOrder = 9985;
+      group.add(m);
+    }
+    sceneRef.current.add(group);
+    snapMarkersGroupRef.current = group;
+  };
+  const setSnapMarkersVisible = (v: boolean) => {
+    if (!snapMarkersGroupRef.current) return;
+    snapMarkersGroupRef.current.visible = v;
   };
 
   // === Snap ring (gold hover indicator, Polycam style) ===
@@ -1189,6 +1234,7 @@ export default function SceneEditor() {
     ceilingRef.current = buildingResult.ceiling;
     slidingDoorsRef.current = buildingResult.slidingDoors || [];
     autoMeasuresRef.current = buildingResult.autoMeasures;
+    buildSnapMarkers();
     const bw = buildingResult.exteriorBounds.maxX - buildingResult.exteriorBounds.minX;
     const bd = buildingResult.exteriorBounds.maxZ - buildingResult.exteriorBounds.minZ;
     setRoomWidth(Math.ceil(bw));
