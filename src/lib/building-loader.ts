@@ -300,10 +300,15 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         glass.rotation.y = -startRad;
         group.add(glass);
       } else {
-        // Swing/double: floor arc shows direction
+        // Swing/double: floor arc + active panel pivot (click to open/close)
         const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, false, 0);
         const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.015, p.y));
         group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
+        doorPanels.push({
+          hingeX: door.x, hingeZ: door.z,
+          width: dw, height: DOOR_H,
+          startAngle: startRad, endAngle: arcEndRad,
+        });
       }
     }
   }
