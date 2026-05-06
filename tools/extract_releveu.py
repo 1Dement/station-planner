@@ -216,10 +216,10 @@ def main() -> None:
     poly_paths = [center(p) for p in poly_paths]
     edge_paths = [center(p) for p in edge_paths]
 
-    hatch_outer = max(poly_paths, key=poly_area) if poly_paths else None
+    # Template convention: every PERETI hatch is a wall stripe, no special exterior hatch.
+    hatch_outer = None
     walls = []
-    rest = [p for p in poly_paths if p is not hatch_outer] + edge_paths
-    for poly in rest:
+    for poly in poly_paths + edge_paths:
         a = poly_area(poly)
         if a < 0.05: continue
         walls.append({"points": poly, "closed": 1, "area": round(a, 4)})
