@@ -183,8 +183,13 @@ export function highlightObject(obj: PlacedObject, selected: boolean) {
 }
 
 export function checkCollision(a: PlacedObject, b: PlacedObject): boolean {
+  // Tolerance: shrink each box by 2cm so objects merely touching/adjacent don't trigger.
   const aBox = new THREE.Box3().setFromObject(a.mesh);
   const bBox = new THREE.Box3().setFromObject(b.mesh);
+  const tol = 0.02;
+  aBox.expandByScalar(-tol);
+  bBox.expandByScalar(-tol);
+  if (aBox.isEmpty() || bBox.isEmpty()) return false;
   return aBox.intersectsBox(bBox);
 }
 

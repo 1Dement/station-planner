@@ -282,10 +282,10 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const clockwise = span < 0;
       const arcEndRad = startRad + span * Math.PI / 180;
 
-      // Closed-direction unit vector in scene XZ; pivot.rotation.y = -startRad
-      // Header center = hinge + (dw/2) * closedDirection
+      // pivot.rotation.y = -startRad rotates local +X -> world (cos β, 0, sin β) where β = startRad.
+      // Header center = hinge + (dw/2) along that direction.
       const cxw = door.x + (dw / 2) * Math.cos(startRad);
-      const czw = door.z - (dw / 2) * Math.sin(startRad);  // -sin because three.js Y rot: +X -> (cos,0,-sin)
+      const czw = door.z + (dw / 2) * Math.sin(startRad);
 
       const headerH = WALL_HEIGHT - DOOR_H;
       if (headerH > 0.05) {
@@ -305,9 +305,8 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
         glass.rotation.y = -startRad;
         group.add(glass);
       } else {
-        const curve = new THREE.EllipseCurve(door.x, door.z, dw, dw, startRad, arcEndRad, clockwise, 0);
-        const arcPts = curve.getPoints(16).map(p => new THREE.Vector3(p.x, 0.015, p.y));
-        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts), doorArcMat));
+        // Skip floor arc visualization (multiple nearby doors caused stacked-circle "cylinder").
+        // Active swing panel below already indicates direction.
         doorPanels.push({
           hingeX: door.x, hingeZ: door.z,
           width: dw, height: DOOR_H,

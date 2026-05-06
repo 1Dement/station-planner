@@ -81,6 +81,8 @@ export default function SceneEditor() {
   const [wallThickness, setWallThickness] = useState(0.25);
   const [wallHeight, setWallHeight] = useState(3.0);
   const [drawHint, setDrawHint] = useState<string>('');
+  const pendingPlaceRef = useRef<CatalogItem | null>(null);
+  const [pendingPlaceItem, setPendingPlaceItem] = useState<CatalogItem | null>(null);
 
   useEffect(() => { currentToolRef.current = currentTool; }, [currentTool]);
 
@@ -103,6 +105,11 @@ export default function SceneEditor() {
         if (currentToolRef.current !== 'select') {
           setCurrentTool('select');
           setDrawHint('');
+        }
+        if (pendingPlaceRef.current) {
+          pendingPlaceRef.current = null;
+          setPendingPlaceItem(null);
+          setStatusMsg('Plasare anulata');
         }
       }
     };
@@ -896,11 +903,12 @@ export default function SceneEditor() {
   }, []);
 
   // ========== DRAG & DROP SYSTEM ==========
-  // In orbit edit mode: OrbitControls disabled, left-click = select + drag objects
-  // In normal mode: OrbitControls enabled, no object interaction
+  // In orbit edit mode: OrbitControls STAY enabled for camera rotation.
+  //   - Click+drag on object => move object (orbit suppressed for that gesture)
+  //   - Click+drag empty/floor => orbit camera as usual
+  // In normal/fp mode: OrbitControls disabled (handled elsewhere) or fp takes over.
   useEffect(() => {
-    if (orbitEditMode && orbitRef.current) orbitRef.current.enabled = false;
-    if (!orbitEditMode && orbitRef.current && !fpMode) orbitRef.current.enabled = true;
+    if (orbitRef.current) orbitRef.current.enabled = !fpMode;
   }, [orbitEditMode, fpMode]);
 
   useEffect(() => {
@@ -1008,7 +1016,21 @@ export default function SceneEditor() {
       mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
 
-      // Click on object = select + prepare drag
+      // Pending click-to-place: drop the queued catalog item at click position
+      if (pendingPlaceRef.current) {
+        const fp = getFloorIntersection(e.clientX, e.clientY);
+        if (fp) {
+          const item = pendingPlaceRef.current;
+          pendingPlaceRef.current = null;
+          setPendingPlaceItem(null);
+          if (orbitRef.current) orbitRef.current.enabled = true;
+          placeObjectAt(item, new THREE.Vector3(fp.x, 0, fp.z));
+          e.stopImmediatePropagation();
+          return;
+        }
+      }
+
+      // Click on object = select + prepare drag (suspend orbit while dragging)
       const meshes = objectsRef.current.map(o => o.mesh);
       const hits = raycasterRef.current.intersectObjects(meshes, true);
       if (hits.length > 0) {
@@ -1027,9 +1049,12 @@ export default function SceneEditor() {
           saveSnapshot();
           isDraggingRef.current = true;
           el.style.cursor = 'grabbing';
+          if (orbitRef.current) orbitRef.current.enabled = false;
+          e.stopImmediatePropagation();
           setStatusMsg(`Drag: ${obj.name} | R=rotire`);
         }
       }
+      // No object hit: orbit handles the click naturally
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -1100,6 +1125,7 @@ export default function SceneEditor() {
         isDraggingRef.current = false;
         clearSnapLines();
         el.style.cursor = 'crosshair';
+        if (orbitRef.current) orbitRef.current.enabled = !fpModeRef.current;
         if (selectedRef.current) {
           setStatusMsg(`Plasat: ${selectedRef.current.name}`);
         }
@@ -1198,33 +1224,34 @@ export default function SceneEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addObject = (item: CatalogItem) => {
+  const placeObjectAt = (item: CatalogItem, pos: THREE.Vector3) => {
     if (!sceneRef.current) return;
-    let pos: THREE.Vector3;
-    if (fpMode && cameraRef.current) {
-      // Spawn 2m in front of camera
-      const cam = cameraRef.current;
-      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-      dir.y = 0; dir.normalize();
-      pos = new THREE.Vector3(cam.position.x + dir.x * 2, 0, cam.position.z + dir.z * 2);
-    } else {
-      const bounds = buildingBoundsRef.current;
-      const centerX = bounds ? (bounds.minX + bounds.maxX) / 2 : 0;
-      const centerZ = bounds ? (bounds.minZ + bounds.maxZ) / 2 : 0;
-      const offset = (Math.random() - 0.5) * 2;
-      pos = new THREE.Vector3(centerX + offset, 0, centerZ + offset);
-    }
     const obj = createPlacedObject(item, pos);
     sceneRef.current.add(obj.mesh);
     objectsRef.current.push(obj);
     setObjectCount(objectsRef.current.length);
-    setStatusMsg(`Adăugat: ${item.name} — Trage-l unde vrei!`);
-
+    setStatusMsg(`Plasat: ${item.name}`);
     if (selectedRef.current) highlightObject(selectedRef.current, false);
     selectedRef.current = obj;
     setSelectedObj(obj);
     highlightObject(obj, true);
     checkAllCollisions();
+  };
+
+  const addObject = (item: CatalogItem) => {
+    if (!sceneRef.current) return;
+    if (fpMode && cameraRef.current) {
+      // FP mode: spawn 2m in front of camera (no click-to-place)
+      const cam = cameraRef.current;
+      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+      dir.y = 0; dir.normalize();
+      placeObjectAt(item, new THREE.Vector3(cam.position.x + dir.x * 2, 0, cam.position.z + dir.z * 2));
+      return;
+    }
+    // Edit mode: queue for click-to-place
+    pendingPlaceRef.current = item;
+    setPendingPlaceItem(item);
+    setStatusMsg(`Click pe podea pentru a plasa: ${item.name} (ESC anuleaza)`);
   };
 
   const deleteSelected = () => {
