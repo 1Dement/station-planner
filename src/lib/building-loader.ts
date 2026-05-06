@@ -69,20 +69,51 @@ function addEdgeSegments(pts: number[][], segments: WallSegment[], isExterior: b
   }
 }
 
-// Wall: only vertical faces, no caps
+// Wall: full extruded prism (vertical faces + top + bottom cap).
+// Top cap is required so top-down ortho view shows wall outline as solid polygons.
 function buildWallFaces(pts: number[][], height: number, mat: THREE.Material): THREE.Mesh {
+  // Drop trailing duplicate of first vertex if present (extractor closes polylines).
+  const ring = pts.slice();
+  if (ring.length > 1) {
+    const first = ring[0]; const last = ring[ring.length - 1];
+    if (Math.abs(first[0] - last[0]) < 1e-6 && Math.abs(first[1] - last[1]) < 1e-6) ring.pop();
+  }
+  if (ring.length < 3) {
+    return new THREE.Mesh(new THREE.BufferGeometry(), mat);
+  }
+
+  // Triangulate floor cap with earcut for top + bottom.
+  const flat: number[] = [];
+  for (const [x, z] of ring) flat.push(x, z);
+  const tri = earcut(flat, [], 2);
+
   const vertices: number[] = [];
   const indices: number[] = [];
   let vi = 0;
 
-  const all = [...pts, pts[0]];
-  for (let i = 0; i < all.length - 1; i++) {
-    const [x1, z1] = all[i];
-    const [x2, z2] = all[i + 1];
+  // Side faces (vertical) — winding chosen so outward normal matches CCW polygon.
+  const closed = [...ring, ring[0]];
+  for (let i = 0; i < closed.length - 1; i++) {
+    const [x1, z1] = closed[i];
+    const [x2, z2] = closed[i + 1];
     const base = vi;
     vertices.push(x1, 0, z1, x2, 0, z2, x2, height, z2, x1, height, z1);
     vi += 4;
-    indices.push(base, base+1, base+2, base, base+2, base+3);
+    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+
+  // Top cap (visible from above)
+  const topBase = vi;
+  for (const [x, z] of ring) { vertices.push(x, height, z); vi += 1; }
+  for (let i = 0; i < tri.length; i += 3) {
+    indices.push(topBase + tri[i], topBase + tri[i + 1], topBase + tri[i + 2]);
+  }
+
+  // Bottom cap (reverse winding so it faces down)
+  const botBase = vi;
+  for (const [x, z] of ring) { vertices.push(x, 0, z); vi += 1; }
+  for (let i = 0; i < tri.length; i += 3) {
+    indices.push(botBase + tri[i + 2], botBase + tri[i + 1], botBase + tri[i]);
   }
 
   const geo = new THREE.BufferGeometry();
