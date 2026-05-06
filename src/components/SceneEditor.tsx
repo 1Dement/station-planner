@@ -1524,8 +1524,8 @@ export default function SceneEditor() {
       if (!item) continue;
       let x = b.minX + it.rx * bw;
       let z = b.minZ + it.rz * bd;
-      const halfW = item.dimensions.width / 2;
-      const halfD = item.dimensions.depth / 2;
+      const halfW = item.width / 2;
+      const halfD = item.depth / 2;
       // Try original; if collides with wall, search a small spiral up to 1.5m
       if (isInsideWall(x, z, halfW, halfD)) {
         let found = false;
