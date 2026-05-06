@@ -514,22 +514,27 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     const lineMat = new THREE.LineBasicMaterial({ color: 0x0071e3, opacity: 0.55, transparent: true });
     const tickMat = new THREE.LineBasicMaterial({ color: 0x0071e3, opacity: 0.4, transparent: true });
 
-    const makeLabel = (text: string, color: string = '#0071e3') => {
+    // Flat plane label lying on ground, rotated to match wall/edge direction (visible top-down).
+    // angleRad = rotation around Y axis aligning text length with edge direction (radians).
+    const makeLabel = (text: string, color: string = '#ff3b30', angleRad: number = 0, sizeW = 0.9, sizeH = 0.22) => {
       const canvas = document.createElement('canvas');
-      canvas.width = 192; canvas.height = 48;
+      canvas.width = 256; canvas.height = 64;
       const ctx = canvas.getContext('2d')!;
-      ctx.clearRect(0, 0, 192, 48);
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillRect(0, 0, 192, 48);
+      ctx.clearRect(0, 0, 256, 64);
+      ctx.fillStyle = 'rgba(255,255,255,0.0)';
+      ctx.fillRect(0, 0, 256, 64);
       ctx.fillStyle = color;
-      ctx.font = 'bold 22px sans-serif';
+      ctx.font = 'bold 30px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(text, 96, 24);
+      ctx.fillText(text, 128, 32);
       const tex = new THREE.CanvasTexture(canvas);
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
-      sprite.scale.set(0.9, 0.22, 1);
-      sprite.renderOrder = 9999;
-      return sprite;
+      tex.anisotropy = 4;
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(sizeW, sizeH), mat);
+      plane.rotation.x = -Math.PI / 2; // lie flat on ground
+      plane.rotation.z = angleRad;     // align with edge direction (in plane)
+      plane.renderOrder = 9999;
+      return plane;
     };
 
     // For each wall polygon, find the longest edge and label its length
@@ -549,31 +554,54 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const points = [new THREE.Vector3(x1, 0.08, z1), new THREE.Vector3(x2, 0.08, z2)];
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), lineMat);
       autoMeasureGroup.add(line);
-      const sprite = makeLabel(`${bestLen.toFixed(2)}m`);
-      sprite.position.set((x1 + x2) / 2, 0.5, (z1 + z2) / 2);
-      autoMeasureGroup.add(sprite);
+      // Edge angle in XZ plane. Convert to plane.rotation.z (after plane.rotation.x = -PI/2).
+      // Plane local +X maps to world +X when angleRad=0; rotating by atan2(dz,dx) aligns text along edge.
+      let edgeAng = Math.atan2(z2 - z1, x2 - x1);
+      // Snap near horizontal/vertical to avoid text rendering upside-down
+      if (edgeAng > Math.PI / 2) edgeAng -= Math.PI;
+      if (edgeAng < -Math.PI / 2) edgeAng += Math.PI;
+      // Plane rotation.z is around its local Z (after lying flat). To rotate text in the ground plane,
+      // we apply rotation around world Y via plane.rotation.z (because after rot.x=-PI/2, local Z = world Y).
+      const lbl = makeLabel(`${bestLen.toFixed(2)}m`, '#ff3b30', -edgeAng);
+      lbl.position.set((x1 + x2) / 2, 0.5, (z1 + z2) / 2);
+      autoMeasureGroup.add(lbl);
     }
 
-    // Doors: label width
+    // Doors: label width — orange, aligned with door axis
     for (const d of data.doors || []) {
       const w = d.width;
       const sa = (d.startAngle || 0) * Math.PI / 180;
-      // Offset label perpendicular to door axis so it doesn't overlap the door
       const cxw = d.x + (w / 2) * Math.cos(sa);
       const czw = d.z - (w / 2) * Math.sin(sa);
-      const sprite = makeLabel(`${(w * 100).toFixed(0)}cm`, '#c97800');
-      sprite.position.set(cxw, 0.5, czw);
-      sprite.scale.set(0.7, 0.18, 1);
-      autoMeasureGroup.add(sprite);
+      // Door axis direction in XZ from startAngle (note z = -sin convention used above)
+      let ang = Math.atan2(-Math.sin(sa), Math.cos(sa));
+      if (ang > Math.PI / 2) ang -= Math.PI;
+      if (ang < -Math.PI / 2) ang += Math.PI;
+      const lbl = makeLabel(`${(w * 100).toFixed(0)}cm`, '#c97800', -ang, 0.7, 0.18);
+      lbl.position.set(cxw, 0.5, czw);
+      autoMeasureGroup.add(lbl);
       void tickMat;
     }
 
-    // Windows: label width
+    // Windows: label width — purple/violet, aligned with window axis
     for (const wn of data.windows || []) {
-      const sprite = makeLabel(`${(wn.width * 100).toFixed(0)}cm`, '#0099cc');
-      sprite.position.set(wn.x, 0.5, wn.z);
-      sprite.scale.set(0.7, 0.18, 1);
-      autoMeasureGroup.add(sprite);
+      // Use first/last point of window polyline if available to compute orientation
+      let ang = 0;
+      const wpts = wn.points || [];
+      if (wpts.length >= 2) {
+        const [wx1, wz1] = wpts[0];
+        const [wx2, wz2] = wpts[wpts.length - 1];
+        ang = Math.atan2(wz2 - wz1, wx2 - wx1);
+        if (ang > Math.PI / 2) ang -= Math.PI;
+        if (ang < -Math.PI / 2) ang += Math.PI;
+      } else if (wn.horizontal) {
+        ang = 0;
+      } else {
+        ang = Math.PI / 2;
+      }
+      const lbl = makeLabel(`${(wn.width * 100).toFixed(0)}cm`, '#7c3aed', -ang, 0.7, 0.18);
+      lbl.position.set(wn.x, 0.5, wn.z);
+      autoMeasureGroup.add(lbl);
     }
   }
   scene.add(autoMeasureGroup);
@@ -595,7 +623,7 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const bcz = (extMinZ + extMaxZ) / 2;
       const ddx = slidingDoor.x - bcx;
       const ddz = slidingDoor.z - bcz;
-      const dist = 20;
+      const dist = 10;
       if (Math.abs(ddx) >= Math.abs(ddz)) {
         // East/West wall: outward along X, lock Z to building center axis
         const sign = Math.sign(ddx) || 1;
