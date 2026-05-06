@@ -2140,6 +2140,55 @@ export default function SceneEditor() {
         el.style.cursor = 'grabbing';
         return;
       }
+      if (e.button === 0 && cameraRef.current) {
+        const rect = el.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        raycasterRef.current.setFromCamera(mouse, cameraRef.current);
+        // Sliding door toggle in walk
+        const slidingGroups = slidingDoorsRef.current.map(s => s.group);
+        const slidingHits = slidingGroups.length ? raycasterRef.current.intersectObjects(slidingGroups, true) : [];
+        if (slidingHits.length > 0) {
+          let n: THREE.Object3D | null = slidingHits[0].object;
+          let entry: SlidingDoor | undefined;
+          while (n) { entry = slidingDoorsRef.current.find(s => s.group === n); if (entry) break; n = n.parent; }
+          if (entry) {
+            const ud = entry.group.userData as { isOpen: boolean };
+            ud.isOpen = !ud.isOpen;
+            const targetOffset = ud.isOpen ? entry.halfW - 0.04 : 0;
+            const startL = entry.panelL.position.x;
+            const startR = entry.panelR.position.x;
+            const endL = -(entry.halfW - 0.04) / 2 - 0.02 - targetOffset;
+            const endR = +(entry.halfW - 0.04) / 2 + 0.02 + targetOffset;
+            const t0 = performance.now(); const dur = 600;
+            const tween = () => {
+              const t = Math.min(1, (performance.now() - t0) / dur);
+              const k = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+              entry!.panelL.position.x = startL + (endL - startL) * k;
+              entry!.panelR.position.x = startR + (endR - startR) * k;
+              if (t < 1) requestAnimationFrame(tween);
+            };
+            tween();
+            return;
+          }
+        }
+        // Swing door toggle in walk
+        const doorMeshes = doorPanelsRef.current.map(d => d.pivot);
+        const doorHits = doorMeshes.length ? raycasterRef.current.intersectObjects(doorMeshes, true) : [];
+        if (doorHits.length > 0) {
+          let clicked: THREE.Object3D | null = doorHits[0].object;
+          let entry = doorPanelsRef.current.find(d => d.pivot === clicked || d.panel === clicked);
+          while (!entry && clicked && clicked.parent) { clicked = clicked.parent; entry = doorPanelsRef.current.find(d => d.pivot === clicked || d.panel === clicked); }
+          if (entry) {
+            const ud = entry.pivot.userData;
+            ud.isOpen = !ud.isOpen;
+            entry.pivot.rotation.y = ud.isOpen ? -ud.endAngle : -ud.startAngle;
+            return;
+          }
+        }
+      }
       if (e.button === 0 && fpEditRef.current && cameraRef.current) {
         // Try to pick up an object
         const rect = el.getBoundingClientRect();

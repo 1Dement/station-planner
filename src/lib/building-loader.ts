@@ -505,13 +505,25 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   ceiling.visible = false; // off by default
   group.add(ceiling);
 
-  // === EXTERIOR: Gas station canopy + 3 fuel pumps (west of building) ===
+  // === EXTERIOR: Gas station canopy + 3 fuel pumps (in front of sliding door entrance) ===
   {
     const canopyGroup = new THREE.Group();
     canopyGroup.userData = { type: 'canopy' };
-    const bw = extMaxX - extMinX;
-    const cx = extMinX - 7;  // 7m west of building west wall
-    const cz = (extMinZ + extMaxZ) / 2;
+    // Find sliding door if any to position canopy in front of entrance
+    const slidingDoor = (data.doors || []).find(d => (d as DoorData).kind === 'sliding');
+    let cx = extMaxX + 7; // fallback east
+    let cz = (extMinZ + extMaxZ) / 2;
+    let canopyRotY = 0;
+    if (slidingDoor) {
+      const sa = slidingDoor.startAngle * Math.PI / 180;
+      // outward normal of door (perpendicular to closed direction): rotate (1,0,0) by sa+90 around Y
+      const outX = Math.sin(sa);
+      const outZ = Math.cos(sa);
+      const dist = 8;
+      cx = slidingDoor.x + outX * dist;
+      cz = slidingDoor.z + outZ * dist;
+      canopyRotY = sa; // align canopy long axis perpendicular to door
+    }
     const canopyW = 6, canopyD = 12, canopyH = 5;
 
     const pillarMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.35, metalness: 0.25 });
@@ -579,8 +591,8 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
     forecourt.receiveShadow = true;
     canopyGroup.add(forecourt);
 
+    void canopyRotY;
     scene.add(canopyGroup);
-    void bw; // bw reserved for future use
   }
 
   scene.add(group);
