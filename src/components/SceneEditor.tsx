@@ -9,6 +9,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { CATALOG, CATEGORIES, CatalogItem, getCatalogByCategory } from '@/lib/catalog';
 import {
   PlacedObject, createPlacedObject, highlightObject,
@@ -584,29 +585,23 @@ export default function SceneEditor() {
     if (!canvasRef.current) return;
 
     const scene = new THREE.Scene();
-    // Procedural sky gradient (CanvasTexture mapped to scene background as equirect)
+    // Sky shader (Potree-style atmospheric scattering)
     {
-      const sw = 1024, sh = 512;
-      const skyCanvas = document.createElement('canvas');
-      skyCanvas.width = sw; skyCanvas.height = sh;
-      const sctx = skyCanvas.getContext('2d')!;
-      const grad = sctx.createLinearGradient(0, 0, 0, sh);
-      grad.addColorStop(0.00, '#7ec0ee');   // zenith blue
-      grad.addColorStop(0.45, '#bfe2f7');   // upper haze
-      grad.addColorStop(0.55, '#f0f5fa');   // horizon
-      grad.addColorStop(1.00, '#d6dde2');   // ground bias
-      sctx.fillStyle = grad; sctx.fillRect(0, 0, sw, sh);
-      // soft sun glow
-      const sunX = sw * 0.65, sunY = sh * 0.32;
-      const sunGrad = sctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 220);
-      sunGrad.addColorStop(0, 'rgba(255, 245, 200, 0.85)');
-      sunGrad.addColorStop(1, 'rgba(255, 245, 200, 0)');
-      sctx.fillStyle = sunGrad;
-      sctx.beginPath(); sctx.arc(sunX, sunY, 220, 0, Math.PI * 2); sctx.fill();
-      const skyTex = new THREE.CanvasTexture(skyCanvas);
-      skyTex.mapping = THREE.EquirectangularReflectionMapping;
-      skyTex.colorSpace = THREE.SRGBColorSpace;
-      scene.background = skyTex;
+      const sky = new Sky();
+      sky.scale.setScalar(450);
+      const u = (sky.material as THREE.ShaderMaterial).uniforms;
+      u.turbidity.value = 7;
+      u.rayleigh.value = 1.6;
+      u.mieCoefficient.value = 0.005;
+      u.mieDirectionalG.value = 0.78;
+      // Sun position: ~mid-morning
+      const sunPhi = THREE.MathUtils.degToRad(90 - 35); // elevation 35deg
+      const sunTheta = THREE.MathUtils.degToRad(140);   // azimuth
+      const sun = new THREE.Vector3();
+      sun.setFromSphericalCoords(1, sunPhi, sunTheta);
+      u.sunPosition.value.copy(sun);
+      scene.add(sky);
+      // Bake env map from sky for IBL reflections
     }
     sceneRef.current = scene;
 
