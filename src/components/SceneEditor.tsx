@@ -306,10 +306,12 @@ export default function SceneEditor() {
   const fpDraggingRef = useRef<PlacedObject | null>(null);
   const [fpDragging, setFpDragging] = useState<string | null>(null); // name of dragged obj
   const [measureMode, setMeasureMode] = useState(false);
+  const measureModeRef = useRef(false);
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
   const measureLineRef = useRef<THREE.Line | null>(null);
   const measureLabelRef = useRef<THREE.Sprite | null>(null);
   const measurementsRef = useRef<Array<{ line: THREE.Line; label: THREE.Sprite; dist: number }>>([]);
+  const measurePreviewRef = useRef<{ line: THREE.Line; label: THREE.Sprite } | null>(null);
   const dragGhostRef = useRef<THREE.Mesh | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
   const fpYawRef = useRef(0);
@@ -325,6 +327,7 @@ export default function SceneEditor() {
   useEffect(() => { roomWidthRef.current = roomWidth; }, [roomWidth]);
   useEffect(() => { roomDepthRef.current = roomDepth; }, [roomDepth]);
   useEffect(() => { fpModeRef.current = fpMode; }, [fpMode]);
+  useEffect(() => { measureModeRef.current = measureMode; if (!measureMode) { clearMeasurePreview(); measurePt1Ref.current = null; } }, [measureMode]);
   // Resize 3D viewport when catalog panel opens/closes
   useEffect(() => {
     setTimeout(() => {
@@ -533,35 +536,101 @@ export default function SceneEditor() {
     measureLabelRef.current = null;
   };
 
-  const handleMeasureClick = (clientX: number, clientY: number) => {
-    const ptRaw = getFloorIntersection(clientX, clientY);
-    if (!ptRaw || !sceneRef.current) return;
-    // Snap to nearest: wall segment endpoint, then object corner, then 10cm grid
+  const snapMeasurePt = (raw: THREE.Vector3): THREE.Vector3 => {
     const snapDist = 1.5;
     const candidates: Array<{ x: number; z: number; d: number }> = [];
+    // Wall segment endpoints + projection onto segment
     for (const w of wallSegmentsRef.current) {
       for (const [x, z] of [[w.x1, w.z1], [w.x2, w.z2]]) {
-        candidates.push({ x, z, d: Math.hypot(ptRaw.x - x, ptRaw.z - z) });
+        candidates.push({ x, z, d: Math.hypot(raw.x - x, raw.z - z) });
+      }
+      // Project click onto wall segment for "nearest point on wall edge"
+      const wx = w.x2 - w.x1, wz = w.z2 - w.z1;
+      const len2 = wx * wx + wz * wz;
+      if (len2 > 0.01) {
+        const t = Math.max(0, Math.min(1, ((raw.x - w.x1) * wx + (raw.z - w.z1) * wz) / len2));
+        const px = w.x1 + t * wx, pz = w.z1 + t * wz;
+        candidates.push({ x: px, z: pz, d: Math.hypot(raw.x - px, raw.z - pz) });
       }
     }
     for (const o of objectsRef.current) {
       const ox = o.mesh.position.x, oz = o.mesh.position.z;
       const w = o.dimensions.width / 2, d = o.dimensions.depth / 2;
-      // 4 corners + center
       for (const [dx, dz] of [[-w, -d], [w, -d], [w, d], [-w, d], [0, 0]]) {
-        candidates.push({ x: ox + dx, z: oz + dz, d: Math.hypot(ptRaw.x - (ox + dx), ptRaw.z - (oz + dz)) });
+        candidates.push({ x: ox + dx, z: oz + dz, d: Math.hypot(raw.x - (ox + dx), raw.z - (oz + dz)) });
       }
     }
     candidates.sort((a, b) => a.d - b.d);
-    const pt = ptRaw.clone();
+    const out = raw.clone();
     if (candidates.length && candidates[0].d < snapDist) {
-      pt.x = candidates[0].x;
-      pt.z = candidates[0].z;
+      out.x = candidates[0].x; out.z = candidates[0].z;
     } else {
-      // Grid snap 10cm
-      pt.x = Math.round(pt.x * 10) / 10;
-      pt.z = Math.round(pt.z * 10) / 10;
+      out.x = Math.round(raw.x * 10) / 10;
+      out.z = Math.round(raw.z * 10) / 10;
     }
+    return out;
+  };
+
+  const updateMeasurePreview = (clientX: number, clientY: number) => {
+    if (!measurePt1Ref.current || !sceneRef.current) return;
+    const raw = getFloorIntersection(clientX, clientY);
+    if (!raw) return;
+    const pt = snapMeasurePt(raw);
+    const p1 = measurePt1Ref.current;
+    const dist = p1.distanceTo(pt);
+    const points = [
+      new THREE.Vector3(p1.x, 0.06, p1.z),
+      new THREE.Vector3(pt.x, 0.06, pt.z),
+    ];
+    if (!measurePreviewRef.current) {
+      const mat = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 });
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geo, mat);
+      sceneRef.current.add(line);
+      // Label sprite
+      const canvas = document.createElement('canvas');
+      canvas.width = 256; canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      const tex = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+      sprite.scale.set(1.4, 0.35, 1);
+      sceneRef.current.add(sprite);
+      measurePreviewRef.current = { line, label: sprite };
+    } else {
+      measurePreviewRef.current.line.geometry.setFromPoints(points);
+    }
+    // Update label content + position
+    const lbl = measurePreviewRef.current.label;
+    const mat = lbl.material as THREE.SpriteMaterial;
+    const tex = mat.map as THREE.CanvasTexture;
+    const canvas = tex.image as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 256, 64);
+    ctx.fillStyle = 'rgba(255,170,0,0.9)';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${dist.toFixed(2)} m`, 128, 32);
+    tex.needsUpdate = true;
+    lbl.position.set((p1.x + pt.x) / 2, 0.6, (p1.z + pt.z) / 2);
+  };
+
+  const clearMeasurePreview = () => {
+    if (measurePreviewRef.current && sceneRef.current) {
+      sceneRef.current.remove(measurePreviewRef.current.line);
+      measurePreviewRef.current.line.geometry.dispose();
+      sceneRef.current.remove(measurePreviewRef.current.label);
+      const m = measurePreviewRef.current.label.material as THREE.SpriteMaterial;
+      m.map?.dispose(); m.dispose();
+      measurePreviewRef.current = null;
+    }
+  };
+
+  const handleMeasureClick = (clientX: number, clientY: number) => {
+    const ptRaw = getFloorIntersection(clientX, clientY);
+    if (!ptRaw || !sceneRef.current) return;
+    const pt = snapMeasurePt(ptRaw);
 
     if (!measurePt1Ref.current) {
       // First click — preserve previous measurements; only set first point
@@ -1221,7 +1290,7 @@ export default function SceneEditor() {
 
       // Always record mousedown for measure tool drag-vs-click detection
       mouseDownPosRef.current.set(e.clientX, e.clientY);
-      if (measureMode) return; // measure handled in mouseUp
+      if (measureModeRef.current) return; // measure handled in mouseUp
       if (!orbitEditRef.current) return; // No further interaction in non-edit mode
 
       const rect = el.getBoundingClientRect();
@@ -1359,7 +1428,7 @@ export default function SceneEditor() {
 
     const handleMouseUp = (e: MouseEvent) => {
       // Measure tool works in any mode (orbit free, edit, walk) — gate first
-      if (measureMode) {
+      if (measureModeRef.current) {
         const dx0 = e.clientX - mouseDownPosRef.current.x;
         const dy0 = e.clientY - mouseDownPosRef.current.y;
         if (Math.abs(dx0) < 5 && Math.abs(dy0) < 5) {
@@ -1392,7 +1461,7 @@ export default function SceneEditor() {
       const dx = e.clientX - mouseDownPosRef.current.x;
       const dy = e.clientY - mouseDownPosRef.current.y;
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
-        if (measureMode) { handleMeasureClick(e.clientX, e.clientY); return; }
+        if (measureModeRef.current) { handleMeasureClick(e.clientX, e.clientY); return; }
 
         const rect = el.getBoundingClientRect();
         mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2061,7 +2130,7 @@ export default function SceneEditor() {
     const onMouseDown = (e: MouseEvent) => {
       if (e.target !== el) return;
       // Measure mode click in walk: hit floor at click point, no rotation/object pickup
-      if (e.button === 0 && measureMode) {
+      if (e.button === 0 && measureModeRef.current) {
         handleMeasureClick(e.clientX, e.clientY);
         return;
       }

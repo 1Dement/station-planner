@@ -505,6 +505,84 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
   ceiling.visible = false; // off by default
   group.add(ceiling);
 
+  // === EXTERIOR: Gas station canopy + 3 fuel pumps (west of building) ===
+  {
+    const canopyGroup = new THREE.Group();
+    canopyGroup.userData = { type: 'canopy' };
+    const bw = extMaxX - extMinX;
+    const cx = extMinX - 7;  // 7m west of building west wall
+    const cz = (extMinZ + extMaxZ) / 2;
+    const canopyW = 6, canopyD = 12, canopyH = 5;
+
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.35, metalness: 0.25 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.30, metalness: 0.15 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x0050b3, roughness: 0.4, metalness: 0.4, emissive: 0x002a66, emissiveIntensity: 0.15 });
+
+    // Roof slab
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(canopyW, 0.20, canopyD), roofMat);
+    roof.position.set(cx, canopyH, cz);
+    roof.castShadow = true; roof.receiveShadow = true;
+    canopyGroup.add(roof);
+    // OMW-style blue trim under roof edge
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(canopyW + 0.10, 0.35, canopyD + 0.10), trimMat);
+    trim.position.set(cx, canopyH - 0.30, cz);
+    canopyGroup.add(trim);
+
+    // 4 corner pillars
+    const pillarHalfW = canopyW / 2 - 0.30, pillarHalfD = canopyD / 2 - 0.30;
+    for (const [px, pz] of [[-pillarHalfW, -pillarHalfD], [pillarHalfW, -pillarHalfD], [-pillarHalfW, pillarHalfD], [pillarHalfW, pillarHalfD]] as [number, number][]) {
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.30, canopyH, 0.30), pillarMat);
+      pillar.position.set(cx + px, canopyH / 2, cz + pz);
+      pillar.castShadow = true;
+      canopyGroup.add(pillar);
+    }
+
+    // 3 fuel pumps in a row centered along Z, on small island bases
+    const pumpBaseMat = new THREE.MeshStandardMaterial({ color: 0xb5b5b5, roughness: 0.7, metalness: 0.05 });
+    const pumpBodyMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.35, metalness: 0.3 });
+    const pumpScreenMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x0066cc, emissiveIntensity: 0.4 });
+    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 });
+    const spacing = canopyD / 4;  // 3 pumps across canopy length
+    for (let i = 0; i < 3; i++) {
+      const pz = cz - canopyD / 2 + spacing * (i + 1);
+      // Island base
+      const island = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 0.7), pumpBaseMat);
+      island.position.set(cx, 0.09, pz);
+      island.receiveShadow = true; island.castShadow = true;
+      canopyGroup.add(island);
+      // Pump body
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.85, 0.42), pumpBodyMat);
+      body.position.set(cx, 0.18 + 1.85 / 2, pz);
+      body.castShadow = true;
+      canopyGroup.add(body);
+      // Display screen front
+      const scr = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.30, 0.02), pumpScreenMat);
+      scr.position.set(cx, 0.18 + 1.85 - 0.30, pz + 0.22);
+      canopyGroup.add(scr);
+      // Top OMW logo strip
+      const logo = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.43), trimMat);
+      logo.position.set(cx, 0.18 + 1.85 + 0.09, pz);
+      canopyGroup.add(logo);
+      // Nozzle holders (2 sides)
+      for (const side of [-1, 1]) {
+        const noz = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.45, 0.16), nozzleMat);
+        noz.position.set(cx + side * 0.30, 0.18 + 1.20, pz);
+        canopyGroup.add(noz);
+      }
+    }
+
+    // Concrete forecourt slab under canopy
+    const forecourtMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.85 });
+    const forecourt = new THREE.Mesh(new THREE.PlaneGeometry(canopyW + 1.5, canopyD + 2), forecourtMat);
+    forecourt.rotation.x = -Math.PI / 2;
+    forecourt.position.set(cx, 0.005, cz);
+    forecourt.receiveShadow = true;
+    canopyGroup.add(forecourt);
+
+    scene.add(canopyGroup);
+    void bw; // bw reserved for future use
+  }
+
   scene.add(group);
   return {
     exteriorBounds: { minX: extMinX, maxX: extMaxX, minZ: extMinZ, maxZ: extMaxZ },
