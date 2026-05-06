@@ -53,7 +53,7 @@ export default function SceneEditor() {
       const ssao = ssaoPassRef.current;
       if (!orbit || !persp || !renderer) return next;
 
-      if (autoMeasuresRef.current) autoMeasuresRef.current.visible = (next === '2d');
+      if (autoMeasuresRef.current) autoMeasuresRef.current.visible = (next === '2d') || showMeasuresRef.current;
       if (next === '2d') {
         // Switch to ORTHOGRAPHIC top-down (true CAD plan view, zero perspective).
         const w = renderer.domElement.clientWidth;
@@ -323,6 +323,9 @@ export default function SceneEditor() {
   const wallPairPreviewRef = useRef<{ line: THREE.Line; label: THREE.Sprite } | null>(null);
   // Walk-mode object drop indicator (ground footprint preview)
   const dropIndicatorRef = useRef<THREE.Group | null>(null);
+  // Auto-measure labels visibility toggle (independent of 2D/3D view)
+  const [showMeasures, setShowMeasures] = useState(false);
+  const showMeasuresRef = useRef(false);
   const dragGhostRef = useRef<THREE.Mesh | null>(null);
   const autoMeasuresRef = useRef<THREE.Group | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
@@ -341,6 +344,10 @@ export default function SceneEditor() {
   useEffect(() => { fpModeRef.current = fpMode; }, [fpMode]);
   useEffect(() => { measureModeRef.current = measureMode; if (!measureMode) { clearMeasurePreview(); measurePt1Ref.current = null; clearWallPairSelection(); hideSnapRing(); } }, [measureMode]);
   useEffect(() => { measureSubModeRef.current = measureSubMode; clearMeasurePreview(); measurePt1Ref.current = null; clearWallPairSelection(); }, [measureSubMode]);
+  useEffect(() => {
+    showMeasuresRef.current = showMeasures;
+    if (autoMeasuresRef.current) autoMeasuresRef.current.visible = showMeasures || viewMode === '2d';
+  }, [showMeasures, viewMode]);
   // Resize 3D viewport when catalog panel opens/closes
   useEffect(() => {
     setTimeout(() => {
@@ -562,10 +569,13 @@ export default function SceneEditor() {
     snapRingRef.current = ring;
     return ring;
   };
-  const showSnapRing = (x: number, z: number, snapped: boolean) => {
+  const showSnapRing = (x: number, z: number, snapped: boolean, y: number = 0.06) => {
     const r = ensureSnapRing();
     (r.material as THREE.MeshBasicMaterial).color.setHex(snapped ? 0xc9a227 : 0x86868b);
-    r.position.set(x, 0.06, z);
+    r.position.set(x, y, z);
+    // Make ring face camera in 3D (so it reads as a circle from any angle)
+    if (cameraRef.current && viewMode !== '2d') r.lookAt(cameraRef.current.position);
+    else r.rotation.set(-Math.PI / 2, 0, 0);
     r.visible = true;
   };
   const hideSnapRing = () => { if (snapRingRef.current) snapRingRef.current.visible = false; };
@@ -797,6 +807,94 @@ export default function SceneEditor() {
   };
   const hideDropIndicator = () => { if (dropIndicatorRef.current) dropIndicatorRef.current.visible = false; };
 
+  // === 3D Polycam-style snap: raycast scene meshes, snap to nearest vertex / edge of hit triangle ===
+  // Returns world-space snap point (3D) plus a flag indicating whether snap was applied (vertex/edge).
+  const get3DSnapHit = (clientX: number, clientY: number): { p: THREE.Vector3; snapped: boolean; kind: 'vertex' | 'edge' | 'surface' | 'floor' } | null => {
+    if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return null;
+    const rect = rendererRef.current.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1
+    );
+    raycasterRef.current.setFromCamera(ndc, cameraRef.current);
+
+    // Build mesh list: walls + objects + door panels (skip helpers, drop indicator, snap ring, autoMeasures, sky)
+    const targets: THREE.Object3D[] = [];
+    sceneRef.current.traverse((o) => {
+      if (!o.visible) return;
+      if (o.userData?.type === 'dropIndicator') return;
+      if (o.userData?.type === 'snapLines') return;
+      if (o.userData?.type === 'autoMeasures') return;
+      if (o.userData?.type === 'measurePreview') return;
+      if (o.name === 'sky') return;
+      if ((o as THREE.Mesh).isMesh) targets.push(o);
+    });
+
+    const hits = raycasterRef.current.intersectObjects(targets, false);
+    let surfaceHit: THREE.Intersection | null = null;
+    for (const h of hits) {
+      // Skip transparent helpers (snap ring etc.) by renderOrder filter
+      if ((h.object as THREE.Mesh).renderOrder >= 9990) continue;
+      surfaceHit = h;
+      break;
+    }
+    if (!surfaceHit) {
+      // Fallback to floor plane
+      const floor = new THREE.Vector3();
+      if (raycasterRef.current.ray.intersectPlane(floorPlaneRef.current, floor)) {
+        return { p: floor, snapped: false, kind: 'floor' };
+      }
+      return null;
+    }
+
+    const p = surfaceHit.point.clone();
+    const face = surfaceHit.face;
+    if (!face) return { p, snapped: false, kind: 'surface' };
+    const mesh = surfaceHit.object as THREE.Mesh;
+    const geom = mesh.geometry as THREE.BufferGeometry;
+    const posAttr = geom.attributes.position as THREE.BufferAttribute | undefined;
+    if (!posAttr) return { p, snapped: false, kind: 'surface' };
+
+    const va = new THREE.Vector3().fromBufferAttribute(posAttr, face.a).applyMatrix4(mesh.matrixWorld);
+    const vb = new THREE.Vector3().fromBufferAttribute(posAttr, face.b).applyMatrix4(mesh.matrixWorld);
+    const vc = new THREE.Vector3().fromBufferAttribute(posAttr, face.c).applyMatrix4(mesh.matrixWorld);
+
+    // Screen-space distance threshold for snap (~14 px equivalent in world units at hit depth)
+    const cam = cameraRef.current;
+    const distToCam = p.distanceTo(cam.position);
+    const fovRad = (cam as THREE.PerspectiveCamera).fov ? ((cam as THREE.PerspectiveCamera).fov * Math.PI) / 180 : Math.PI / 4;
+    const screenH = rect.height;
+    const worldPerPx = (2 * Math.tan(fovRad / 2) * distToCam) / screenH;
+    const vertexSnap = 14 * worldPerPx;
+    const edgeSnap = 8 * worldPerPx;
+
+    // Vertex snap: pick the nearest of a/b/c if within threshold
+    const dvs = [
+      { v: va, d: p.distanceTo(va) },
+      { v: vb, d: p.distanceTo(vb) },
+      { v: vc, d: p.distanceTo(vc) },
+    ].sort((x, y) => x.d - y.d);
+    if (dvs[0].d < vertexSnap) {
+      return { p: dvs[0].v.clone(), snapped: true, kind: 'vertex' };
+    }
+    // Edge snap: project p onto each triangle edge, take nearest
+    const projectOnSeg = (a: THREE.Vector3, b: THREE.Vector3, q: THREE.Vector3) => {
+      const ab = b.clone().sub(a);
+      const t = Math.max(0, Math.min(1, q.clone().sub(a).dot(ab) / ab.lengthSq()));
+      return { pt: a.clone().add(ab.multiplyScalar(t)), t };
+    };
+    const e1 = projectOnSeg(va, vb, p), e2 = projectOnSeg(vb, vc, p), e3 = projectOnSeg(vc, va, p);
+    const ed = [
+      { v: e1.pt, d: p.distanceTo(e1.pt) },
+      { v: e2.pt, d: p.distanceTo(e2.pt) },
+      { v: e3.pt, d: p.distanceTo(e3.pt) },
+    ].sort((x, y) => x.d - y.d);
+    if (ed[0].d < edgeSnap) {
+      return { p: ed[0].v.clone(), snapped: true, kind: 'edge' };
+    }
+    return { p, snapped: false, kind: 'surface' };
+  };
+
   // Shared pill label maker used by new measure rendering
   const makePillLabel = (text: string, bg: string = '#1d1d1f'): THREE.Sprite => {
     const canvas = document.createElement('canvas');
@@ -916,14 +1014,24 @@ export default function SceneEditor() {
       handleWallPairClick(clientX, clientY);
       return;
     }
-    const ptRaw = getFloorIntersection(clientX, clientY);
-    if (!ptRaw || !sceneRef.current) return;
-    const pt = snapMeasurePt(ptRaw);
+    if (!sceneRef.current) return;
+    // Polycam-style 3D snap (vertex > edge > surface > floor)
+    const hit3d = get3DSnapHit(clientX, clientY);
+    let pt: THREE.Vector3;
+    if (hit3d) {
+      pt = hit3d.p.clone();
+      // In 2D top-down ortho view we still want labels on ground plane
+      if (viewMode === '2d') pt.y = 0;
+    } else {
+      const ptRaw = getFloorIntersection(clientX, clientY);
+      if (!ptRaw) return;
+      pt = snapMeasurePt(ptRaw);
+    }
 
     if (!measurePt1Ref.current) {
       // First click — preserve previous measurements; only set first point
       measurePt1Ref.current = pt.clone();
-      setStatusMsg('Masurare: click al doilea punct (ESC anuleaza)');
+      setStatusMsg(hit3d?.snapped ? `Snap ${hit3d.kind} — click al doilea punct` : 'Masurare: click al doilea punct (ESC anuleaza)');
     } else {
       // Second click — draw line + label
       const p1 = measurePt1Ref.current;
@@ -1657,23 +1765,24 @@ export default function SceneEditor() {
 
       // Measure tool hover snap indicator
       if (measureModeRef.current) {
-        const raw = getFloorIntersection(e.clientX, e.clientY);
-        if (raw) {
-          if (measureSubModeRef.current === 'wallPair') {
+        if (measureSubModeRef.current === 'wallPair') {
+          const raw = getFloorIntersection(e.clientX, e.clientY);
+          if (raw) {
             const w = pickNearestWall(raw);
             if (w && w.dist < 1.5) {
               const px = w.w.x1 + w.t * (w.w.x2 - w.w.x1);
               const pz = w.w.z1 + w.t * (w.w.z2 - w.w.z1);
               showSnapRing(px, pz, true);
             } else hideSnapRing();
-            // Dotted preview line from first selected wall to hovered wall
             if (wallPairFirstRef.current) updateWallPairPreview(e.clientX, e.clientY);
-          } else {
-            const snapped = snapMeasurePt(raw);
-            const isSnap = Math.hypot(raw.x - snapped.x, raw.z - snapped.z) > 0.001;
-            showSnapRing(snapped.x, snapped.z, isSnap);
-          }
-        } else hideSnapRing();
+          } else hideSnapRing();
+        } else {
+          // Distance: Polycam-style 3D snap (vertex/edge/surface) — works in walk + orbit + 2D
+          const hit3d = get3DSnapHit(e.clientX, e.clientY);
+          if (hit3d) {
+            showSnapRing(hit3d.p.x, hit3d.p.z, hit3d.snapped, viewMode === '2d' ? 0.06 : Math.max(0.06, hit3d.p.y));
+          } else hideSnapRing();
+        }
       }
 
       // Wall draw tool — update preview + snap marker
@@ -3017,6 +3126,12 @@ export default function SceneEditor() {
             <button onClick={duplicateSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }}>Duplica</button>
             <button onClick={deleteSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }}>Sterge</button>
             <button onClick={clearAllObjects} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }} title="Sterge tot">X Tot</button>
+            <button
+              onClick={() => setShowMeasures(!showMeasures)}
+              className="text-[11px] px-2 py-1.5 rounded-lg font-semibold"
+              style={{ background: showMeasures ? '#30d158' : '#f5f5f7', color: showMeasures ? '#fff' : '#1d1d1f' }}
+              title="Toggle dimensiuni perete/usi/geam (auto)"
+            >📐 Dim</button>
             <div className="flex items-center gap-1 rounded-lg overflow-hidden" style={{ background: measureMode ? '#1d1d1f' : '#f5f5f7' }}>
               <button
                 onClick={() => { setMeasureMode(!measureMode); if (!measureMode) setStatusMsg('Masura ON · M cicleaza mod · ESC inchide'); }}
@@ -3099,12 +3214,20 @@ export default function SceneEditor() {
                 <span className="text-[10px] font-mono w-8 text-right" style={{ color: '#fff' }}>{fov}°</span>
               </div>
               <button
-                onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }}
+                onClick={() => setShowMeasures(!showMeasures)}
+                className="text-xs px-3 py-1.5 rounded-xl font-semibold"
+                style={{ background: showMeasures ? '#30d158' : 'rgba(255,255,255,0.15)', color: '#fff' }}
+                title="Toggle dimensiuni perete/usi/geam"
+              >
+                📐 DIM
+              </button>
+              <button
+                onClick={() => { setMeasureMode(!measureMode); }}
                 className="text-xs px-3 py-1.5 rounded-xl font-semibold"
                 style={{ background: measureMode ? '#ff3b30' : 'rgba(255,255,255,0.15)', color: '#fff' }}
-                title="Tool masura: click 2 puncte pe podea"
+                title="Masura 3D snap (M cicleaza, ESC inchide)"
               >
-                📏 MĂSURARE
+                📏 {measureMode ? `MASURA · ${measureSubMode === 'wallPair' ? 'PER' : 'PCT'}` : 'MASURA'}
               </button>
               <button
                 onClick={exitFpMode}
