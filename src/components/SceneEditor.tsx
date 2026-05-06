@@ -1806,16 +1806,32 @@ export default function SceneEditor() {
     orbitRef.current.saveState();
     orbitRef.current.enabled = false;
     const cam = cameraRef.current;
-    // Start at entrance (sliding door gap between front windows, Z≈-6.5)
     const bounds = buildingBoundsRef.current;
-    const entranceX = bounds ? (bounds.minX + bounds.maxX) / 2 - 1 : -3;
-    const entranceZ = bounds ? bounds.minZ + 0.5 : -6.2;
-    cam.position.set(entranceX, 1.7, entranceZ);
-    // Look toward interior (+Z direction)
-    fpYawRef.current = Math.PI;
-    fpPitchRef.current = 0;
+    // Prefer to start OUTSIDE the sliding door, looking IN.
+    const sliding = slidingDoorsRef.current[0];
+    if (sliding) {
+      const sx = sliding.group.position.x;
+      const sz = sliding.group.position.z;
+      const sy = sliding.group.rotation.y; // closed-direction rotation around Y (= -startRad in extractor)
+      // outward normal of the door (perpendicular to opening): rotate +Z by sy
+      // pivot's local +X is the closed direction; perpendicular to it = +Z (panel faces along +Z in local)
+      const outX = Math.sin(sy);
+      const outZ = Math.cos(sy);
+      cam.position.set(sx + outX * 2.5, 1.7, sz + outZ * 2.5);
+      // Face toward door (-out)
+      const yaw = Math.atan2(-outX, -outZ);
+      fpYawRef.current = yaw;
+    } else if (bounds) {
+      // Fallback: south-east of building, facing center
+      cam.position.set(bounds.maxX + 2, 1.7, (bounds.minZ + bounds.maxZ) / 2);
+      fpYawRef.current = -Math.PI / 2;
+    } else {
+      cam.position.set(0, 1.7, -6.2);
+      fpYawRef.current = Math.PI;
+    }
+    fpPitchRef.current = -0.05;
     cam.rotation.order = 'YXZ';
-    cam.rotation.set(0, fpYawRef.current, 0, 'YXZ');
+    cam.rotation.set(fpPitchRef.current, fpYawRef.current, 0, 'YXZ');
     setStatusMsg('Walkthrough: WASD mers | Click+drag rotire | ESC iesire');
   };
 
@@ -2333,6 +2349,38 @@ export default function SceneEditor() {
             >
               ⚡ AUTO OMW
             </button>
+            <button
+              onClick={saveLayoutToStorage}
+              className="text-[12px] px-3 py-2 rounded-xl font-semibold"
+              style={{ background: '#30d158', color: '#fff' }}
+              title="Salveaza layout (browser storage)"
+            >
+              💾 SAVE
+            </button>
+            <button
+              onClick={loadLayoutFromStorage}
+              className="text-[12px] px-3 py-2 rounded-xl font-semibold"
+              style={{ background: '#5ac8fa', color: '#fff' }}
+              title="Incarca ultimul layout salvat"
+            >
+              📂 LOAD
+            </button>
+            <button
+              onClick={handleExport}
+              className="text-[12px] px-3 py-2 rounded-xl font-semibold"
+              style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}
+              title="Descarca layout JSON"
+            >
+              ⬇ EXPORT
+            </button>
+            <label
+              className="text-[12px] px-3 py-2 rounded-xl font-semibold cursor-pointer"
+              style={{ background: '#f5f5f7', color: '#1d1d1f', border: '1px solid #d1d1d6' }}
+              title="Incarca layout din JSON"
+            >
+              ⬆ IMPORT
+              <input type="file" accept=".json" onChange={handleImportLayout} className="hidden" />
+            </label>
             <div className="w-px h-6 mx-0.5" style={{ background: '#e5e5ea' }} />
             {/* Secondary tools */}
             <button onClick={() => rotateSelected(-45)} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }} title="Roteste -45deg">-45°</button>
