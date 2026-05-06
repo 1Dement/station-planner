@@ -181,6 +181,7 @@ export default function SceneEditor() {
           setPendingPlaceItem(null);
           setStatusMsg('Plasare anulata');
         }
+        cadFirstWallRef.current = null;
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1068,6 +1069,66 @@ export default function SceneEditor() {
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       if (fpModeRef.current) return;
+
+      // EXTEND tool: click base wall, then click target wall; extends base endpoint to intersection
+      if (currentToolRef.current === 'extend' || currentToolRef.current === 'trim') {
+        const fp = getFloorIntersection(e.clientX, e.clientY);
+        if (!fp) return;
+        const click = { x: fp.x, y: -fp.z };
+        const hit = findNearestWall(wallsRef.current, click, 0.8);
+        if (!hit) { setDrawHint('Click pe un perete (toleranta 80cm)'); return; }
+        if (!cadFirstWallRef.current) {
+          cadFirstWallRef.current = hit.wall.id;
+          setDrawHint(`${currentToolRef.current === 'extend' ? 'EXTINDE' : 'TRIM'}: click pe peretele tinta`);
+          return;
+        }
+        const baseId = cadFirstWallRef.current;
+        cadFirstWallRef.current = null;
+        if (baseId === hit.wall.id) {
+          setDrawHint('Selecteaza alt perete'); return;
+        }
+        const base = wallsRef.current.find(w => w.id === baseId);
+        const target = hit.wall;
+        if (!base) return;
+        // Line-line intersection (extended): base.start + t*(base.end-base.start) = target.start + s*(target.end-target.start)
+        const x1 = base.start.x, y1 = base.start.y, x2 = base.end.x, y2 = base.end.y;
+        const x3 = target.start.x, y3 = target.start.y, x4 = target.end.x, y4 = target.end.y;
+        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.abs(denom) < 1e-6) { setDrawHint('Pereti paraleli, fara intersectie'); return; }
+        const tNum = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
+        const t = tNum / denom;
+        // Intersection point on base line:
+        const ix = x1 + t * (x2 - x1);
+        const iy = y1 + t * (y2 - y1);
+        if (currentToolRef.current === 'extend') {
+          // Move base endpoint nearest to click (or to intersection — pick the side that grows)
+          const dStart = Math.hypot(x1 - click.x, y1 - click.y);
+          const dEnd = Math.hypot(x2 - click.x, y2 - click.y);
+          const updated = wallsRef.current.map(w => {
+            if (w.id !== baseId) return w;
+            return dStart < dEnd
+              ? { ...w, start: { x: ix, y: iy } }
+              : { ...w, end: { x: ix, y: iy } };
+          });
+          wallsRef.current = updated;
+          if (wallGroupRef.current) updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode, null, holesRef.current);
+          setDrawHint(`Extins. Click alt perete pt continuare sau ESC.`);
+        } else {
+          // TRIM: split base at intersection, drop the half containing the click
+          const dStart = Math.hypot(x1 - click.x, y1 - click.y);
+          const dEnd = Math.hypot(x2 - click.x, y2 - click.y);
+          const updated = wallsRef.current.map(w => {
+            if (w.id !== baseId) return w;
+            return dStart < dEnd
+              ? { ...w, start: { x: ix, y: iy } }   // drop start half (closer to click)
+              : { ...w, end: { x: ix, y: iy } };
+          });
+          wallsRef.current = updated;
+          if (wallGroupRef.current) updateWallGroup(wallGroupRef.current, wallsRef.current, viewMode, null, holesRef.current);
+          setDrawHint(`Trim aplicat. Click alt perete sau ESC.`);
+        }
+        return;
+      }
 
       // Door / Window placement — click on a wall to add opening
       if (currentToolRef.current === 'door' || currentToolRef.current === 'window') {
@@ -2351,6 +2412,22 @@ export default function SceneEditor() {
                 style={{ background: currentTool === 'window' ? '#0099cc' : '#f5f5f7', color: currentTool === 'window' ? '#fff' : '#1d1d1f', border: currentTool === 'window' ? 'none' : '1px solid #d1d1d6' }}
               >
                 Geam
+              </button>
+              <button
+                onClick={() => { cadFirstWallRef.current = null; setCurrentTool(currentTool === 'extend' ? 'select' : 'extend'); setDrawHint(currentTool === 'extend' ? '' : 'EXTINDE: click pe peretele de extins'); }}
+                className="text-xs py-2 px-3 rounded-lg font-medium transition-all"
+                style={{ background: currentTool === 'extend' ? '#34c759' : '#f5f5f7', color: currentTool === 'extend' ? '#fff' : '#1d1d1f', border: currentTool === 'extend' ? 'none' : '1px solid #d1d1d6' }}
+                title="Extinde perete pana atinge un alt perete"
+              >
+                Extinde
+              </button>
+              <button
+                onClick={() => { cadFirstWallRef.current = null; setCurrentTool(currentTool === 'trim' ? 'select' : 'trim'); setDrawHint(currentTool === 'trim' ? '' : 'TRIM: click pe peretele de taiat'); }}
+                className="text-xs py-2 px-3 rounded-lg font-medium transition-all"
+                style={{ background: currentTool === 'trim' ? '#ff9500' : '#f5f5f7', color: currentTool === 'trim' ? '#fff' : '#1d1d1f', border: currentTool === 'trim' ? 'none' : '1px solid #d1d1d6' }}
+                title="Taie portiune din perete intre intersectii"
+              >
+                Trim
               </button>
               <button
                 onClick={togglePlanView}
