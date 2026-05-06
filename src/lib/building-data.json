@@ -967,9 +967,9 @@
       "x": -5.1689,
       "z": -3.1454,
       "width": 0.902,
-      "startAngle": 273.3,
+      "startAngle": 270.0,
       "endAngle": 180.0,
-      "hingeAngle": 273.3,
+      "hingeAngle": 270.0,
       "yFlipped": true,
       "kind": "swing",
       "label": "Usa"

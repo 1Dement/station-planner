@@ -244,9 +244,14 @@ def main() -> None:
         info = parse_door_label(lbl)
         width = (info["width_cm"] / 100.0) if info["width_cm"] else r["radius"]
         # Y-flip: negate angles (closed direction = -orig_start, open = -orig_end).
-        # Arc winding reverses (CCW->CW); building-loader handles via clockwise param.
-        sa_neg = (-r["startAngle"]) % 360.0
-        ea_neg = (-r["endAngle"]) % 360.0
+        # Snap to nearest 90deg if within 10deg tolerance (releveu doors typically perpendicular to wall).
+        def snap90(a: float) -> float:
+            for q in (0.0, 90.0, 180.0, 270.0, 360.0):
+                if abs(a - q) <= 10.0:
+                    return q % 360.0
+            return a
+        sa_neg = snap90((-r["startAngle"]) % 360.0)
+        ea_neg = snap90((-r["endAngle"]) % 360.0)
         doors.append({
             "x": round(r["x_raw"] - cx, 4),
             "z": round(-(r["y_raw"] - cy), 4),
