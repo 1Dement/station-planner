@@ -332,16 +332,9 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       const cxw = door.x + (dw / 2) * Math.cos(startRad);
       const czw = door.z - (dw / 2) * Math.sin(startRad);
 
-      const headerH = WALL_HEIGHT - DOOR_H;
-      if (headerH > 0.05) {
-        const hgGeo = new THREE.BoxGeometry(dw, headerH, HEADER_THICKNESS);
-        const header = new THREE.Mesh(hgGeo, headerMat);
-        header.position.set(cxw, DOOR_H + headerH / 2, czw);
-        header.rotation.y = -startRad;
-        header.castShadow = true;
-        header.receiveShadow = true;
-        group.add(header);
-      }
+      // Header (lintel) skipped: caused floating slabs in top-down view + misaligned with walls.
+      // Door opening = natural gap in wall hatch is sufficient. May reintroduce later with proper wall snap.
+      void headerMat; void HEADER_THICKNESS;
 
       if (door.kind === 'sliding') {
         const glassGeo = new THREE.BoxGeometry(dw, DOOR_H, 0.04);
