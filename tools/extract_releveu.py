@@ -66,18 +66,20 @@ def hatch_paths(h) -> list[tuple[str, list[list[float]]]]:
                         seen.append(s)
                     seen.append(e)
                 elif t in ("ArcEdge", "EllipseEdge"):
-                    n_seg = 24
+                    # Skip arc subdivision: HATCH boundary arcs (e.g. door swings accidentally
+                    # included in wall hatch) would become fake circular walls. Use start+end
+                    # of the arc as straight segment instead.
                     cx0, cy0 = float(ed.center[0]), float(ed.center[1])
                     r = float(getattr(ed, "radius", 1.0))
                     a0 = math.radians(float(ed.start_angle))
                     a1 = math.radians(float(ed.end_angle))
                     if not getattr(ed, "ccw", True):
                         a0, a1 = a1, a0
-                    if a1 < a0:
-                        a1 += 2 * math.pi
-                    for i in range(n_seg + 1):
-                        tt = a0 + (a1 - a0) * i / n_seg
-                        seen.append((cx0 + r * math.cos(tt), cy0 + r * math.sin(tt)))
+                    s = (cx0 + r * math.cos(a0), cy0 + r * math.sin(a0))
+                    e = (cx0 + r * math.cos(a1), cy0 + r * math.sin(a1))
+                    if not seen or seen[-1] != s:
+                        seen.append(s)
+                    seen.append(e)
             loop = [list(p) for p in seen]
         if len(loop) >= 3:
             if loop[0] != loop[-1]:
