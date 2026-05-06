@@ -142,6 +142,7 @@ export default function SceneEditor() {
   const [drawHint, setDrawHint] = useState<string>('');
   const pendingPlaceRef = useRef<CatalogItem | null>(null);
   const [pendingPlaceItem, setPendingPlaceItem] = useState<CatalogItem | null>(null);
+  const [showWallPanel, setShowWallPanel] = useState(false);
   const [walkSpeed, setWalkSpeed] = useState(1.0);
   const walkSpeedRef = useRef(1.0);
   useEffect(() => { walkSpeedRef.current = walkSpeed; }, [walkSpeed]);
@@ -305,6 +306,8 @@ export default function SceneEditor() {
   const measurePt1Ref = useRef<THREE.Vector3 | null>(null);
   const measureLineRef = useRef<THREE.Line | null>(null);
   const measureLabelRef = useRef<THREE.Sprite | null>(null);
+  const measurementsRef = useRef<Array<{ line: THREE.Line; label: THREE.Sprite; dist: number }>>([]);
+  const dragGhostRef = useRef<THREE.Mesh | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
   const fpYawRef = useRef(0);
   const fpPitchRef = useRef(0);
@@ -406,8 +409,8 @@ export default function SceneEditor() {
       }
     }
 
-    // Tetris snap to other objects
-    const SNAP_T = 0.12;
+    // Tetris snap to other objects (object-to-object) — wider tolerance so it triggers easier
+    const SNAP_T = 0.25;
     for (const other of objectsRef.current) {
       if (other.id === obj.id) continue;
       const ox = other.mesh.position.x, oz = other.mesh.position.z;
@@ -488,20 +491,20 @@ export default function SceneEditor() {
   };
 
   const clearMeasure = () => {
-    if (measureLineRef.current && sceneRef.current) {
-      sceneRef.current.remove(measureLineRef.current);
-      measureLineRef.current.geometry.dispose();
-      measureLineRef.current = null;
-    }
-    if (measureLabelRef.current && sceneRef.current) {
-      sceneRef.current.remove(measureLabelRef.current);
-      if (measureLabelRef.current.material instanceof THREE.SpriteMaterial) {
-        measureLabelRef.current.material.map?.dispose();
-        measureLabelRef.current.material.dispose();
+    // Clear all persistent measurements + the in-progress one
+    if (sceneRef.current) {
+      for (const m of measurementsRef.current) {
+        sceneRef.current.remove(m.line); m.line.geometry.dispose();
+        sceneRef.current.remove(m.label);
+        if (m.label.material instanceof THREE.SpriteMaterial) {
+          m.label.material.map?.dispose(); m.label.material.dispose();
+        }
       }
-      measureLabelRef.current = null;
     }
+    measurementsRef.current = [];
     measurePt1Ref.current = null;
+    measureLineRef.current = null;
+    measureLabelRef.current = null;
   };
 
   const handleMeasureClick = (clientX: number, clientY: number) => {
@@ -509,10 +512,9 @@ export default function SceneEditor() {
     if (!pt || !sceneRef.current) return;
 
     if (!measurePt1Ref.current) {
-      // First click
-      clearMeasure();
+      // First click — preserve previous measurements; only set first point
       measurePt1Ref.current = pt.clone();
-      setStatusMsg('Masurare: click al doilea punct');
+      setStatusMsg('Masurare: click al doilea punct (ESC anuleaza)');
     } else {
       // Second click — draw line + label
       const p1 = measurePt1Ref.current;
@@ -546,8 +548,9 @@ export default function SceneEditor() {
       sprite.scale.set(1.2, 0.3, 1);
       sceneRef.current.add(sprite);
       measureLabelRef.current = sprite;
+      measurementsRef.current.push({ line, label: sprite, dist });
 
-      setStatusMsg(`Distanta: ${dist.toFixed(2)} m`);
+      setStatusMsg(`Distanta: ${dist.toFixed(2)} m | click pt masura noua, ESC pt iesire`);
       measurePt1Ref.current = null;
     }
   };
@@ -1162,8 +1165,22 @@ export default function SceneEditor() {
         isDraggingRef.current = true;
         el.style.cursor = 'grabbing';
         if (orbitRef.current) orbitRef.current.enabled = false;
+        // Spawn ghost outline ring on floor showing target footprint
+        if (sceneRef.current) {
+          if (dragGhostRef.current) sceneRef.current.remove(dragGhostRef.current);
+          const w = obj.dimensions.width, d = obj.dimensions.depth;
+          const ghostGeo = new THREE.PlaneGeometry(w, d);
+          const ghostMat = new THREE.MeshBasicMaterial({ color: 0x0071e3, transparent: true, opacity: 0.30, side: THREE.DoubleSide, depthWrite: false });
+          const ghost = new THREE.Mesh(ghostGeo, ghostMat);
+          ghost.rotation.x = -Math.PI / 2;
+          ghost.rotation.z = obj.mesh.rotation.y;
+          ghost.position.set(obj.mesh.position.x, 0.02, obj.mesh.position.z);
+          ghost.renderOrder = 999;
+          sceneRef.current.add(ghost);
+          dragGhostRef.current = ghost;
+        }
         e.stopImmediatePropagation();
-        setStatusMsg(`Drag: ${obj.name} | R=rotire`);
+        setStatusMsg(`Drag: ${obj.name} | R=rotire | snap zid + obiecte`);
       }
       // No object hit: orbit handles the click naturally
     };
@@ -1223,6 +1240,10 @@ export default function SceneEditor() {
         obj.mesh.position.x = nx;
         obj.mesh.position.z = nz;
         obj.mesh.position.y = 0;
+        if (dragGhostRef.current) {
+          dragGhostRef.current.position.set(nx, 0.02, nz);
+          dragGhostRef.current.rotation.z = obj.mesh.rotation.y;
+        }
         checkAllCollisions();
         setSelectedObj({ ...obj });
       }
@@ -1235,6 +1256,12 @@ export default function SceneEditor() {
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
         clearSnapLines();
+        if (dragGhostRef.current && sceneRef.current) {
+          sceneRef.current.remove(dragGhostRef.current);
+          dragGhostRef.current.geometry.dispose();
+          if (dragGhostRef.current.material instanceof THREE.Material) dragGhostRef.current.material.dispose();
+          dragGhostRef.current = null;
+        }
         el.style.cursor = 'crosshair';
         if (orbitRef.current) orbitRef.current.enabled = !fpModeRef.current;
         if (selectedRef.current) {
@@ -2190,8 +2217,8 @@ export default function SceneEditor() {
           </button>
         )}
 
-        {/* Wall toolbar (top-right) */}
-        {!fpMode && (
+        {/* Wall toolbar (top-right) — collapsible, hidden by default */}
+        {!fpMode && showWallPanel && (
           <div className="absolute top-3 right-3 z-20 flex flex-col gap-2 p-3 rounded-xl" style={{ background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', border: '1px solid #e5e5ea', minWidth: 260 }}>
             <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#86868b' }}>Pereti & IFC</div>
             <div className="flex gap-2">
@@ -2319,7 +2346,22 @@ export default function SceneEditor() {
             <button onClick={duplicateSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#1d1d1f' }}>Duplica</button>
             <button onClick={deleteSelected} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }}>Sterge</button>
             <button onClick={clearAllObjects} className="text-[11px] px-2 py-1.5 rounded-lg hover:bg-red-50" style={{ color: '#ff3b30' }} title="Sterge tot">X Tot</button>
-            <button onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); }} className="text-[11px] px-2 py-1.5 rounded-lg" style={{ background: measureMode ? '#ff3b30' : 'transparent', color: measureMode ? '#fff' : '#1d1d1f' }}>Masura</button>
+            <button
+              onClick={() => { if (measureMode) clearMeasure(); setMeasureMode(!measureMode); setStatusMsg(!measureMode ? 'Masura: click 2 puncte pe podea (snap la colt zid)' : ''); }}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg font-semibold"
+              style={{ background: measureMode ? '#ff3b30' : '#f5f5f7', color: measureMode ? '#fff' : '#1d1d1f' }}
+              title="Tool masura: click pe podea pt 2 puncte (cm/m). Click pe Masura iar pt iesire."
+            >
+              📏 MASURA
+            </button>
+            <button
+              onClick={() => setShowWallPanel(!showWallPanel)}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg font-semibold"
+              style={{ background: showWallPanel ? '#0071e3' : '#f5f5f7', color: showWallPanel ? '#fff' : '#1d1d1f' }}
+              title="Toggle panel desenare zid + IFC export"
+            >
+              🧱 IFC
+            </button>
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: '#f5f5f7' }} title={`FOV ${fov}deg`}>
               <span className="text-[10px] font-mono" style={{ color: '#86868b' }}>FOV</span>
               <input type="range" min={20} max={110} step={1} value={fov} onChange={(e) => setFov(parseInt(e.target.value))} className="w-20 accent-blue-500" disabled={viewMode === '2d'} />
