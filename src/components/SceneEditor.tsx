@@ -1372,6 +1372,69 @@ export default function SceneEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const generateOMWLayout = () => {
+    if (!sceneRef.current || !buildingBoundsRef.current) return;
+    const b = buildingBoundsRef.current;
+    const bw = b.maxX - b.minX, bd = b.maxZ - b.minZ;
+    // Relative-coord layout (rx,rz in 0..1 of bbox, ry deg)
+    const layout: Array<{ id: string; rx: number; rz: number; ry?: number }> = [
+      // Coffee corner (NW)
+      { id: 'coffee-machine-main', rx: 0.18, rz: 0.18, ry: 180 },
+      { id: 'coffee-machine-secondary', rx: 0.30, rz: 0.18, ry: 180 },
+      { id: 'juice-machine', rx: 0.42, rz: 0.18, ry: 180 },
+      { id: 'microwave-station', rx: 0.54, rz: 0.18, ry: 180 },
+      { id: 'hot-dog-grill', rx: 0.66, rz: 0.18, ry: 180 },
+      { id: 'coffee-fridge', rx: 0.10, rz: 0.30, ry: 90 },
+      // Aisles (3 gondole row, parallel to long axis)
+      { id: 'gondola-double-90', rx: 0.30, rz: 0.45, ry: 0 },
+      { id: 'gondola-double-90', rx: 0.30, rz: 0.55, ry: 0 },
+      { id: 'gondola-double-90', rx: 0.30, rz: 0.65, ry: 0 },
+      { id: 'gondola-double-60', rx: 0.50, rz: 0.50, ry: 0 },
+      { id: 'gondola-double-60', rx: 0.50, rz: 0.60, ry: 0 },
+      // Endcap displays at aisle ends
+      { id: 'endcap-display', rx: 0.30, rz: 0.38 },
+      { id: 'endcap-display', rx: 0.30, rz: 0.72 },
+      // Front counter / checkout
+      { id: 'counter-main', rx: 0.50, rz: 0.30, ry: 90 },
+      { id: 'tobacco-display', rx: 0.50, rz: 0.22, ry: 0 },
+      { id: 'impulse-rack', rx: 0.42, rz: 0.30 },
+      { id: 'self-payment', rx: 0.62, rz: 0.30, ry: 90 },
+      // Wall fridges back
+      { id: 'fridge-wall-6door', rx: 0.85, rz: 0.50, ry: -90 },
+      { id: 'fridge-2door', rx: 0.85, rz: 0.30, ry: -90 },
+      { id: 'ice-cream-freezer', rx: 0.85, rz: 0.70, ry: -90 },
+      // Dining zone (SW)
+      { id: 'bar-table-round', rx: 0.15, rz: 0.85 },
+      { id: 'bar-stool', rx: 0.10, rz: 0.85 },
+      { id: 'bar-stool', rx: 0.20, rz: 0.85 },
+      { id: 'bar-table-round', rx: 0.30, rz: 0.85 },
+      { id: 'bar-stool', rx: 0.25, rz: 0.85 },
+      { id: 'bar-stool', rx: 0.35, rz: 0.85 },
+      // Decor / totems / utility
+      { id: 'digital-menu-board', rx: 0.50, rz: 0.10, ry: 180 },
+      { id: 'promo-totem', rx: 0.65, rz: 0.45 },
+      { id: 'atm', rx: 0.10, rz: 0.50, ry: 90 },
+      { id: 'trash-selective', rx: 0.50, rz: 0.92 },
+      { id: 'hand-sanitizer', rx: 0.45, rz: 0.92 },
+      { id: 'fire-extinguisher', rx: 0.92, rz: 0.92 },
+    ];
+    let placed = 0;
+    for (const it of layout) {
+      const item = CATALOG.find(c => c.id === it.id);
+      if (!item) continue;
+      const x = b.minX + it.rx * bw;
+      const z = b.minZ + it.rz * bd;
+      const obj = createPlacedObject(item, new THREE.Vector3(x, 0, z));
+      if (it.ry) obj.mesh.rotation.y = it.ry * Math.PI / 180;
+      sceneRef.current!.add(obj.mesh);
+      objectsRef.current.push(obj);
+      placed++;
+    }
+    setObjectCount(objectsRef.current.length);
+    setStatusMsg(`Generat layout OMW: ${placed} obiecte plasate. Trage-le sa repozitionezi.`);
+    checkAllCollisions();
+  };
+
   const placeObjectAt = (item: CatalogItem, pos: THREE.Vector3) => {
     if (!sceneRef.current) return;
     const obj = createPlacedObject(item, pos);
@@ -2239,6 +2302,14 @@ export default function SceneEditor() {
               title={viewMode === '2d' ? 'Plan 2D blocat (top-down ortho)' : 'Comuta la PLAN 2D'}
             >
               {viewMode === '2d' ? '🔒 PLAN 2D' : '📐 PLAN 2D'}
+            </button>
+            <button
+              onClick={generateOMWLayout}
+              className="text-[12px] px-4 py-2 rounded-xl font-semibold"
+              style={{ background: '#7c3aed', color: '#fff' }}
+              title="Genereaza layout OMW (cafea, gondole, frigidere, dining, casa)"
+            >
+              ⚡ AUTO OMW
             </button>
             <div className="w-px h-6 mx-0.5" style={{ background: '#e5e5ea' }} />
             {/* Secondary tools */}
