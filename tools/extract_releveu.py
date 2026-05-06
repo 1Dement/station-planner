@@ -211,7 +211,8 @@ def main() -> None:
     cx = (min(xs) + max(xs)) / 2.0
     cy = (min(ys) + max(ys)) / 2.0
 
-    def center(poly): return [[round(x - cx, 4), round(y - cy, 4)] for x, y in poly]
+    # Flip DXF Y -> scene Z (so top-down view in three.js matches CAD orientation)
+    def center(poly): return [[round(x - cx, 4), round(-(y - cy), 4)] for x, y in poly]
 
     poly_paths = [center(p) for p in poly_paths]
     edge_paths = [center(p) for p in edge_paths]
@@ -230,13 +231,16 @@ def main() -> None:
         lbl = nearest_label(r["x_raw"], r["y_raw"], door_labels, max_dist=3.0)
         info = parse_door_label(lbl)
         width = (info["width_cm"] / 100.0) if info["width_cm"] else r["radius"]
+        # Y-flip mirrors angles around X axis: a' = -a (mod 360); arc winding reverses, so start<->end swap
+        sa_flipped = (-r["startAngle"]) % 360.0
+        ea_flipped = (-r["endAngle"]) % 360.0
         doors.append({
             "x": round(r["x_raw"] - cx, 4),
-            "z": round(r["y_raw"] - cy, 4),
+            "z": round(-(r["y_raw"] - cy), 4),
             "width": round(width, 3),
-            "startAngle": r["startAngle"],
-            "endAngle": r["endAngle"],
-            "hingeAngle": r["startAngle"],
+            "startAngle": round(ea_flipped, 1),
+            "endAngle": round(sa_flipped, 1),
+            "hingeAngle": round(ea_flipped, 1),
             "kind": info["kind"],
             "label": lbl,
         })
@@ -250,7 +254,7 @@ def main() -> None:
         width = (info["width_cm"] / 100.0) if info["width_cm"] else w["width"]
         windows.append({
             "x": round(w["x_raw"] - cx, 4),
-            "z": round(w["y_raw"] - cy, 4),
+            "z": round(-(w["y_raw"] - cy), 4),
             "width": round(width, 3),
             "depth": w["thickness"],
             "horizontal": 1 if abs(w["ang_deg"]) < 5 or abs(w["ang_deg"] - 180) < 5 else 0,
