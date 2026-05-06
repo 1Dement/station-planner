@@ -34,6 +34,20 @@ html, body {
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+}
+
+/* 13in laptop optimization (1280-1440 viewport) */
+@media (max-width: 1440px) {
+  html, body { font-size: 13px; }
+  .panel-13in { padding: 0.5rem !important; min-width: 200px !important; }
+  .panel-13in.w-72 { width: 14rem !important; }
+  .panel-13in.w-60 { width: 12rem !important; }
+  .panel-13in.w-52 { width: 11rem !important; }
+}
+@media (max-width: 1280px) {
+  html, body { font-size: 12px; }
+  .panel-13in.w-72 { width: 12rem !important; }
 }
 
 ::-webkit-scrollbar {

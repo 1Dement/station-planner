@@ -321,6 +321,8 @@ export default function SceneEditor() {
   const wallPairFirstRef = useRef<{ idx: number; mid: THREE.Vector3; n: THREE.Vector3 } | null>(null);
   const wallHighlightRef = useRef<THREE.Line[]>([]);
   const wallPairPreviewRef = useRef<{ line: THREE.Line; label: THREE.Sprite } | null>(null);
+  // Walk-mode object drop indicator (ground footprint preview)
+  const dropIndicatorRef = useRef<THREE.Group | null>(null);
   const dragGhostRef = useRef<THREE.Mesh | null>(null);
   const autoMeasuresRef = useRef<THREE.Group | null>(null);
   const fpKeysRef = useRef<Set<string>>(new Set());
@@ -732,6 +734,65 @@ export default function SceneEditor() {
     // Keep first highlight a moment, then clear all wall outlines on next click
     setTimeout(() => clearWallPairSelection(), 1200);
   };
+
+  // === Walk-mode drop indicator (ground rect + crosshair) ===
+  const ensureDropIndicator = (): THREE.Group => {
+    if (dropIndicatorRef.current) return dropIndicatorRef.current;
+    const g = new THREE.Group();
+    g.userData = { type: 'dropIndicator' };
+    // Filled translucent rect (footprint)
+    const rect = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0x30d158, transparent: true, opacity: 0.25, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
+    );
+    rect.rotation.x = -Math.PI / 2;
+    rect.renderOrder = 9990;
+    rect.name = 'dropRect';
+    g.add(rect);
+    // Outline (4 segments)
+    const outlineMat = new THREE.LineBasicMaterial({ color: 0x30d158, transparent: true, opacity: 0.95, depthTest: false });
+    const outlineGeo = new THREE.BufferGeometry();
+    const outline = new THREE.LineLoop(outlineGeo, outlineMat);
+    outline.renderOrder = 9991;
+    outline.name = 'dropOutline';
+    g.add(outline);
+    // Cross at center
+    const crossMat = new THREE.LineBasicMaterial({ color: 0x30d158, transparent: true, opacity: 0.85, depthTest: false });
+    const crossGeo = new THREE.BufferGeometry();
+    const cross = new THREE.LineSegments(crossGeo, crossMat);
+    cross.renderOrder = 9992;
+    cross.name = 'dropCross';
+    g.add(cross);
+    g.visible = false;
+    sceneRef.current?.add(g);
+    dropIndicatorRef.current = g;
+    return g;
+  };
+  const updateDropIndicator = (obj: PlacedObject, x: number, z: number) => {
+    const g = ensureDropIndicator();
+    const w = obj.dimensions.width, d = obj.dimensions.depth;
+    const ry = obj.mesh.rotation.y;
+    g.position.set(x, 0.02, z);
+    g.rotation.y = ry;
+    const rect = g.getObjectByName('dropRect') as THREE.Mesh;
+    rect.scale.set(w, d, 1);
+    const outline = g.getObjectByName('dropOutline') as THREE.LineLoop;
+    const hw = w / 2, hd = d / 2;
+    (outline.geometry as THREE.BufferGeometry).setFromPoints([
+      new THREE.Vector3(-hw, 0.005, -hd),
+      new THREE.Vector3( hw, 0.005, -hd),
+      new THREE.Vector3( hw, 0.005,  hd),
+      new THREE.Vector3(-hw, 0.005,  hd),
+    ]);
+    const cross = g.getObjectByName('dropCross') as THREE.LineSegments;
+    const c = Math.min(w, d) * 0.25;
+    (cross.geometry as THREE.BufferGeometry).setFromPoints([
+      new THREE.Vector3(-c, 0.006, 0), new THREE.Vector3(c, 0.006, 0),
+      new THREE.Vector3(0, 0.006, -c), new THREE.Vector3(0, 0.006, c),
+    ]);
+    g.visible = true;
+  };
+  const hideDropIndicator = () => { if (dropIndicatorRef.current) dropIndicatorRef.current.visible = false; };
 
   // Shared pill label maker used by new measure rendering
   const makePillLabel = (text: string, bg: string = '#1d1d1f'): THREE.Sprite => {
@@ -2318,6 +2379,9 @@ export default function SceneEditor() {
     fpPitchRef.current = -0.05;
     cam.rotation.order = 'YXZ';
     cam.rotation.set(fpPitchRef.current, fpYawRef.current, 0, 'YXZ');
+    // Walk-mode defaults: wider FOV + slower walk speed
+    setFov(80);
+    setWalkSpeed(0.5);
     setStatusMsg('Walkthrough: WASD mers | Click+drag rotire | ESC iesire');
   };
 
@@ -2328,6 +2392,7 @@ export default function SceneEditor() {
     fpDraggingRef.current = null;
     setFpDragging(null);
     fpKeysRef.current.clear();
+    hideDropIndicator();
     if (orbitRef.current && cameraRef.current) {
       orbitRef.current.enabled = true;
       cameraRef.current.rotation.order = 'XYZ';
@@ -2351,6 +2416,7 @@ export default function SceneEditor() {
           fpDraggingRef.current.mesh.position.y = 0;
           fpDraggingRef.current = null;
           setFpDragging(null);
+          hideDropIndicator();
           setStatusMsg('Mutare anulata');
           return;
         }
@@ -2474,7 +2540,8 @@ export default function SceneEditor() {
             selectedRef.current = found;
             setSelectedObj(found);
             highlightObject(found, true);
-            found.mesh.position.y = 0.15; // lift slightly
+            found.mesh.position.y = 0; // stay on ground; show ground indicator instead
+            updateDropIndicator(found, found.mesh.position.x, found.mesh.position.z);
             el.style.cursor = 'grabbing';
             leftDown = true;
             return;
@@ -2506,7 +2573,8 @@ export default function SceneEditor() {
           const [sx, sz] = snapWithIndicators(fpDraggingRef.current, target.x, target.z);
           fpDraggingRef.current.mesh.position.x = sx;
           fpDraggingRef.current.mesh.position.z = sz;
-          fpDraggingRef.current.mesh.position.y = 0.15;
+          fpDraggingRef.current.mesh.position.y = 0;
+          updateDropIndicator(fpDraggingRef.current, sx, sz);
         }
       }
     };
@@ -2518,6 +2586,7 @@ export default function SceneEditor() {
       if (fpDraggingRef.current) {
         fpDraggingRef.current.mesh.position.y = 0;
         clearSnapLines();
+        hideDropIndicator();
         setStatusMsg(`Plasat: ${fpDraggingRef.current.name}`);
         fpDraggingRef.current = null;
         setFpDragging(null);
@@ -2649,10 +2718,10 @@ export default function SceneEditor() {
     <div className="flex h-screen w-screen overflow-hidden" style={{ background: '#f5f5f7' }}>
       {/* Left Panel - Catalog */}
       <div
-        className={`${showCatalog ? 'w-72' : 'w-0'} transition-all duration-300 flex-shrink-0 overflow-hidden`}
+        className={`${showCatalog ? 'w-72 panel-13in' : 'w-0'} transition-all duration-300 flex-shrink-0 overflow-hidden`}
         style={showCatalog ? { background: '#fff', borderRight: '1px solid #e5e5ea', boxShadow: '2px 0 8px rgba(0,0,0,0.04)' } : {}}
       >
-        <div className="w-72 h-full flex flex-col">
+        <div className="w-full h-full flex flex-col">
           {/* Header */}
           <div className="px-4 py-3" style={{ borderBottom: '1px solid #e5e5ea' }}>
             <h1 className="text-sm font-semibold" style={{ color: '#1d1d1f' }}>Station Planner</h1>
@@ -2770,7 +2839,7 @@ export default function SceneEditor() {
 
         {/* Wall toolbar (top-right) — collapsible, hidden by default */}
         {!fpMode && showWallPanel && (
-          <div className="absolute top-3 right-3 z-20 flex flex-col gap-2 p-3 rounded-xl" style={{ background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', border: '1px solid #e5e5ea', minWidth: 260 }}>
+          <div className="absolute top-3 right-3 z-20 flex flex-col gap-2 p-3 rounded-xl panel-13in" style={{ background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', border: '1px solid #e5e5ea', minWidth: 260 }}>
             <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#86868b' }}>Pereti & IFC</div>
             <div className="flex gap-2">
               <button
