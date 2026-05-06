@@ -126,7 +126,7 @@ export default function SceneEditor() {
   const snapLinesRef = useRef<THREE.Group | null>(null);
 
   // Wall drawing state + refs
-  type Tool = 'select' | 'wall' | 'door' | 'window';
+  type Tool = 'select' | 'wall' | 'door' | 'window' | 'extend' | 'trim';
   const [currentTool, setCurrentTool] = useState<Tool>('select');
   const currentToolRef = useRef<Tool>('select');
   const wallsRef = useRef<Wall[]>([]);
@@ -143,6 +143,7 @@ export default function SceneEditor() {
   const [drawHint, setDrawHint] = useState<string>('');
   const pendingPlaceRef = useRef<CatalogItem | null>(null);
   const [pendingPlaceItem, setPendingPlaceItem] = useState<CatalogItem | null>(null);
+  const cadFirstWallRef = useRef<string | null>(null);  // wall id picked as base for extend/trim
   const [showWallPanel, setShowWallPanel] = useState(false);
   const [walkSpeed, setWalkSpeed] = useState(1.0);
   const walkSpeedRef = useRef(1.0);
@@ -509,8 +510,34 @@ export default function SceneEditor() {
   };
 
   const handleMeasureClick = (clientX: number, clientY: number) => {
-    const pt = getFloorIntersection(clientX, clientY);
-    if (!pt || !sceneRef.current) return;
+    const ptRaw = getFloorIntersection(clientX, clientY);
+    if (!ptRaw || !sceneRef.current) return;
+    // Snap to nearest: wall segment endpoint, then object corner, then 10cm grid
+    const snapDist = 0.6;
+    const candidates: Array<{ x: number; z: number; d: number }> = [];
+    for (const w of wallSegmentsRef.current) {
+      for (const [x, z] of [[w.x1, w.z1], [w.x2, w.z2]]) {
+        candidates.push({ x, z, d: Math.hypot(ptRaw.x - x, ptRaw.z - z) });
+      }
+    }
+    for (const o of objectsRef.current) {
+      const ox = o.mesh.position.x, oz = o.mesh.position.z;
+      const w = o.dimensions.width / 2, d = o.dimensions.depth / 2;
+      // 4 corners + center
+      for (const [dx, dz] of [[-w, -d], [w, -d], [w, d], [-w, d], [0, 0]]) {
+        candidates.push({ x: ox + dx, z: oz + dz, d: Math.hypot(ptRaw.x - (ox + dx), ptRaw.z - (oz + dz)) });
+      }
+    }
+    candidates.sort((a, b) => a.d - b.d);
+    const pt = ptRaw.clone();
+    if (candidates.length && candidates[0].d < snapDist) {
+      pt.x = candidates[0].x;
+      pt.z = candidates[0].z;
+    } else {
+      // Grid snap 10cm
+      pt.x = Math.round(pt.x * 10) / 10;
+      pt.z = Math.round(pt.z * 10) / 10;
+    }
 
     if (!measurePt1Ref.current) {
       // First click — preserve previous measurements; only set first point
@@ -2336,7 +2363,7 @@ export default function SceneEditor() {
             <button
               onClick={enterFpMode}
               className="text-[12px] px-4 py-2 rounded-xl font-semibold"
-              style={{ background: '#0071e3', color: '#fff' }}
+              style={{ background: '#f5f5f7', color: '#1d1d1f' }}
               title="Intra in modul WALK (mers prin spatiu)"
             >
               🚶 WALK-MODE
@@ -2361,9 +2388,9 @@ export default function SceneEditor() {
               onClick={generateOMWLayout}
               className="text-[12px] px-4 py-2 rounded-xl font-semibold"
               style={{ background: '#7c3aed', color: '#fff' }}
-              title="Genereaza layout OMW (cafea, gondole, frigidere, dining, casa)"
+              title="Auto Planner Station — genereaza layout (cafea, gondole, frigidere, dining, casa)"
             >
-              ⚡ AUTO OMW
+              ⚡ AUTO PLANNER STATION
             </button>
             <button
               onClick={saveLayoutToStorage}
@@ -2411,7 +2438,7 @@ export default function SceneEditor() {
               style={{ background: measureMode ? '#ff3b30' : '#f5f5f7', color: measureMode ? '#fff' : '#1d1d1f' }}
               title="Tool masura: click pe podea pt 2 puncte (cm/m). Click pe Masura iar pt iesire."
             >
-              📏 MASURA
+              📏 MĂSURARE
             </button>
             <button
               onClick={() => setShowWallPanel(!showWallPanel)}
@@ -2470,7 +2497,7 @@ export default function SceneEditor() {
                 style={{ background: measureMode ? '#ff3b30' : 'rgba(255,255,255,0.15)', color: '#fff' }}
                 title="Tool masura: click 2 puncte pe podea"
               >
-                📏 MASURA
+                📏 MĂSURARE
               </button>
               <button
                 onClick={exitFpMode}
