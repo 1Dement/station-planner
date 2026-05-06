@@ -337,11 +337,44 @@ export function loadBuildingIntoScene(scene: THREE.Scene): {
       void headerMat; void HEADER_THICKNESS;
 
       if (door.kind === 'sliding') {
-        const glassGeo = new THREE.BoxGeometry(dw, DOOR_H, 0.04);
-        const glass = new THREE.Mesh(glassGeo, slidingGlassMat);
-        glass.position.set(cxw, DOOR_H / 2, czw);
-        glass.rotation.y = -startRad;
-        group.add(glass);
+        // Gas-station style double sliding glass door.
+        // Default to 2m if marker arc was tiny (e.g., 0.2m placeholder).
+        const slideW = Math.max(dw, 2.0);
+        const slideH = 2.3;
+        const halfW = slideW / 2;
+        const frameMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.3, metalness: 0.6 });
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.7 });
+        // Re-center on opening midpoint; build a local group then rotate
+        const grp = new THREE.Group();
+        grp.position.set(cxw, 0, czw);
+        grp.rotation.y = -startRad;
+
+        // Frame posts at edges
+        const postGeo = new THREE.BoxGeometry(0.06, slideH, 0.14);
+        const post1 = new THREE.Mesh(postGeo, frameMat); post1.position.set(-halfW, slideH / 2, 0); grp.add(post1);
+        const post2 = new THREE.Mesh(postGeo, frameMat); post2.position.set(+halfW, slideH / 2, 0); grp.add(post2);
+        // Top rail (lintel for the doors)
+        const topGeo = new THREE.BoxGeometry(slideW + 0.06, 0.18, 0.18);
+        const topRail = new THREE.Mesh(topGeo, railMat); topRail.position.set(0, slideH + 0.09, 0); grp.add(topRail);
+        // Bottom track
+        const botGeo = new THREE.BoxGeometry(slideW, 0.03, 0.10);
+        const botRail = new THREE.Mesh(botGeo, railMat); botRail.position.set(0, 0.015, 0); grp.add(botRail);
+        // Two glass panels: each (slideW/2 - small gap) wide, slightly inset
+        const panelW = (slideW / 2) - 0.04;
+        const panelGeo = new THREE.BoxGeometry(panelW, slideH - 0.18, 0.04);
+        const panelL = new THREE.Mesh(panelGeo, slidingGlassMat);
+        panelL.position.set(-panelW / 2 - 0.02, (slideH - 0.18) / 2, 0);
+        grp.add(panelL);
+        const panelR = new THREE.Mesh(panelGeo, slidingGlassMat);
+        panelR.position.set(+panelW / 2 + 0.02, (slideH - 0.18) / 2, 0);
+        grp.add(panelR);
+        // Sensor light
+        const sensorMat = new THREE.MeshStandardMaterial({ color: 0x66ff66, emissive: 0x66ff66, emissiveIntensity: 0.6 });
+        const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), sensorMat);
+        sensor.position.set(0, slideH + 0.18 + 0.04, 0.10);
+        grp.add(sensor);
+
+        group.add(grp);
       } else {
         // Skip floor arc visualization (multiple nearby doors caused stacked-circle "cylinder").
         // Active swing panel below already indicates direction.
