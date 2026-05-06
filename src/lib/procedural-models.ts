@@ -792,6 +792,141 @@ function createWetFloorSign(w: number, h: number, _d: number): THREE.Group {
 }
 
 // === GENERIC BOX (better fallback) ===
+// === BATHROOM / SANITARE ===
+const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.18, metalness: 0.05 });
+const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcfd4d8, roughness: 0.18, metalness: 0.85 });
+const stainlessMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd0, roughness: 0.35, metalness: 0.7 });
+
+function createToilet(w: number, h: number, d: number): THREE.Group {
+  const g = new THREE.Group();
+  // Base bowl (rounded box)
+  const bowl = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.55, d * 0.85), ceramicMat);
+  bowl.position.set(0, h * 0.275, -d * 0.05);
+  g.add(bowl);
+  // Seat
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(w * 0.95, 0.04, d * 0.78), ceramicMat);
+  seat.position.set(0, h * 0.55 + 0.02, -d * 0.05);
+  g.add(seat);
+  // Tank
+  const tank = new THREE.Mesh(new THREE.BoxGeometry(w * 0.92, h * 0.45, d * 0.32), ceramicMat);
+  tank.position.set(0, h * 0.78, d * 0.30);
+  g.add(tank);
+  // Flush button
+  g.add(box(w * 0.18, 0.02, 0.04, chromeMat, 0, h - 0.01, d * 0.30));
+  return g;
+}
+
+function createWashbasin(w: number, h: number, d: number): THREE.Group {
+  const g = new THREE.Group();
+  // Pedestal (slim column down to floor)
+  const ped = new THREE.Mesh(new THREE.BoxGeometry(w * 0.30, h * 0.78, d * 0.40), ceramicMat);
+  ped.position.set(0, h * 0.39, 0);
+  g.add(ped);
+  // Counter / basin top
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.18, d), ceramicMat);
+  top.position.set(0, h * 0.85, 0);
+  g.add(top);
+  // Inner bowl recess (darker patch)
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(w, d) * 0.32, Math.min(w, d) * 0.32, h * 0.12, 16), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.25 }));
+  bowl.position.set(0, h * 0.92, 0);
+  g.add(bowl);
+  // Faucet
+  const faucet = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 12), chromeMat);
+  faucet.position.set(0, h + 0.09, -d * 0.35);
+  g.add(faucet);
+  const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 12), chromeMat);
+  spout.position.set(0, h + 0.16, -d * 0.27);
+  spout.rotation.x = Math.PI / 2;
+  g.add(spout);
+  return g;
+}
+
+function createKitchenSink(w: number, h: number, d: number): THREE.Group {
+  const g = new THREE.Group();
+  // Cabinet base
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.82, d), new THREE.MeshStandardMaterial({ color: 0x2c2c30, roughness: 0.7 }));
+  cab.position.set(0, h * 0.41, 0);
+  g.add(cab);
+  // Stainless top
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.04, d + 0.02), stainlessMat);
+  top.position.set(0, h * 0.84, 0);
+  g.add(top);
+  // Sink basin recess
+  const basin = new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, 0.10, d * 0.65), new THREE.MeshStandardMaterial({ color: 0xb8bcc0, roughness: 0.4, metalness: 0.6 }));
+  basin.position.set(-w * 0.10, h * 0.84 - 0.04, 0);
+  g.add(basin);
+  // Faucet
+  const fb = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.28, 12), chromeMat);
+  fb.position.set(w * 0.30, h * 0.84 + 0.14, -d * 0.30);
+  g.add(fb);
+  return g;
+}
+
+function createUrinal(w: number, h: number, _d: number): THREE.Group {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.85, 0.20), ceramicMat);
+  body.position.set(0, h * 0.55, 0);
+  g.add(body);
+  // Slight bowl
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(w * 0.95, 0.06, 0.10), ceramicMat);
+  lip.position.set(0, h * 0.20, 0.10);
+  g.add(lip);
+  return g;
+}
+
+// === APPLIANCES ===
+function createMicrowave(w: number, h: number, d: number): THREE.Group {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x1f1f23, roughness: 0.45, metalness: 0.25 }));
+  body.position.set(0, h / 2, 0);
+  g.add(body);
+  // Door window
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.65, h * 0.65), new THREE.MeshStandardMaterial({ color: 0x101012, roughness: 0.1, metalness: 0.0, emissive: 0x222, emissiveIntensity: 0.1 }));
+  win.position.set(-w * 0.05, h / 2, d / 2 + 0.001);
+  g.add(win);
+  // Control panel
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.25, h * 0.85), new THREE.MeshStandardMaterial({ color: 0x2a2a2e, roughness: 0.6 }));
+  panel.position.set(w * 0.35, h / 2, d / 2 + 0.001);
+  g.add(panel);
+  return g;
+}
+
+function createKettle(w: number, h: number, d: number): THREE.Group {
+  const g = new THREE.Group();
+  const r = Math.min(w, d) / 2;
+  // Base
+  g.add(cyl(r * 1.05, 0.04, brushedMetal, 0, 0.02, 0, 16));
+  // Body (slight cone)
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.85, r, h * 0.85, 16), new THREE.MeshStandardMaterial({ color: 0xb0b6bc, roughness: 0.3, metalness: 0.65 }));
+  body.position.set(0, h * 0.45 + 0.04, 0);
+  g.add(body);
+  // Handle
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(h * 0.30, 0.012, 8, 18, Math.PI), new THREE.MeshStandardMaterial({ color: 0x202024, roughness: 0.5 }));
+  handle.position.set(-r * 0.85, h * 0.55, 0);
+  handle.rotation.z = Math.PI / 2;
+  g.add(handle);
+  // Spout
+  const spout = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.08, 10), new THREE.MeshStandardMaterial({ color: 0xb0b6bc, roughness: 0.3, metalness: 0.65 }));
+  spout.position.set(r * 0.85, h * 0.85, 0);
+  spout.rotation.z = -Math.PI / 3;
+  g.add(spout);
+  return g;
+}
+
+function createToaster(w: number, h: number, d: number): THREE.Group {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.85, d), new THREE.MeshStandardMaterial({ color: 0xb0b6bc, roughness: 0.3, metalness: 0.6 }));
+  body.position.set(0, h * 0.42, 0);
+  g.add(body);
+  // Slot cutouts (visual)
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(w * 0.75, 0.02, d * 0.18), new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.9 }));
+  slot.position.set(0, h * 0.85, 0);
+  g.add(slot);
+  // Lever
+  g.add(box(0.025, h * 0.30, 0.025, new THREE.MeshStandardMaterial({ color: 0x2a2a2a }), w * 0.40, h * 0.50, 0));
+  return g;
+}
+
 function createGenericBox(w: number, h: number, d: number, color: string): THREE.Group {
   const group = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.08 });
@@ -875,6 +1010,19 @@ export function createProceduralModel(item: CatalogItem): THREE.Group {
   // Automotive
   if (id === 'oil-display' || id === 'wiper-stand' || id === 'tire-inflator-display') return createShelfWall(w, h, d);
   if (id === 'car-wash-vending' || id === 'adblue-dispenser') return createATM(w, h, d);
+
+  // Bathroom
+  if (id === 'toilet-wc') return createToilet(w, h, d);
+  if (id === 'washbasin') return createWashbasin(w, h, d);
+  if (id === 'kitchen-sink') return createKitchenSink(w, h, d);
+  if (id === 'urinal') return createUrinal(w, h, d);
+  if (id === 'hand-dryer') return createGenericBox(w, h, d, '#d4d4d4');
+
+  // Appliances
+  if (id === 'coffee-machine') return createCoffeeMachine(w, h, d);
+  if (id === 'microwave') return createMicrowave(w, h, d);
+  if (id === 'kettle') return createKettle(w, h, d);
+  if (id === 'toaster') return createToaster(w, h, d);
 
   // Cleaning
   if (id === 'hand-sanitizer') return createSanitizerStand(w, h, d);

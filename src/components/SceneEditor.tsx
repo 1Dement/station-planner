@@ -549,7 +549,9 @@ export default function SceneEditor() {
     // Remove every measureDim group + bare measureDim children traversed from scene
     if (sceneRef.current) {
       const toRemove: THREE.Object3D[] = [];
-      sceneRef.current.traverse((o) => { if (o.userData?.type === 'measureDim') toRemove.push(o); });
+      sceneRef.current.traverse((o) => {
+        if (o.userData?.type === 'measureDim' || o.userData?.type === 'measureDimStart') toRemove.push(o);
+      });
       for (const g of toRemove) {
         g.traverse((o) => {
           const anyO = o as { geometry?: THREE.BufferGeometry; material?: THREE.Material | THREE.Material[] };
@@ -1111,8 +1113,16 @@ export default function SceneEditor() {
     }
 
     if (!measurePt1Ref.current) {
-      // First click — preserve previous measurements; only set first point
+      // First click — drop red dot at p1 + preserve previous measurements
       measurePt1Ref.current = pt.clone();
+      const startGroup = new THREE.Group();
+      startGroup.userData = { type: 'measureDimStart' };
+      const dotMat = new THREE.MeshBasicMaterial({ color: 0xff2030, depthTest: false, toneMapped: false });
+      const dotGeo = new THREE.SphereGeometry(0.10, 12, 10);
+      const d = new THREE.Mesh(dotGeo, dotMat);
+      d.position.copy(pt); d.renderOrder = 9996;
+      startGroup.add(d);
+      sceneRef.current.add(startGroup);
       setStatusMsg(hit3d?.snapped ? `Snap ${hit3d.kind} — click al doilea punct` : 'Masurare: click al doilea punct (ESC anuleaza)');
     } else {
       // Second click — draw line + label
@@ -1143,6 +1153,15 @@ export default function SceneEditor() {
       const segR = new THREE.Line(new THREE.BufferGeometry().setFromPoints([mRight, b]), lineMat.clone());
       segL.renderOrder = 9994; segR.renderOrder = 9994;
       dimGroup.add(segL); dimGroup.add(segR);
+
+      // Red endpoint dots (click confirmation — replace any gold marker visually)
+      const dotMat = new THREE.MeshBasicMaterial({ color: RED, depthTest: false, toneMapped: false });
+      const dotGeo = new THREE.SphereGeometry(0.10, 12, 10);
+      const dotA = new THREE.Mesh(dotGeo, dotMat);
+      dotA.position.copy(a); dotA.renderOrder = 9996;
+      const dotB = new THREE.Mesh(dotGeo, dotMat);
+      dotB.position.copy(b); dotB.renderOrder = 9996;
+      dimGroup.add(dotA); dimGroup.add(dotB);
 
       // Arrowheads (cones) at each endpoint, pointing outward (toward a / toward b)
       const headLen = Math.min(0.18, len * 0.05);
@@ -1180,6 +1199,8 @@ export default function SceneEditor() {
       sprite.renderOrder = 9999;
       dimGroup.add(sprite);
 
+      // Remove the temporary p1 marker (the dimGroup now has its own permanent endpoint dots)
+      sceneRef.current.traverse((o) => { if (o.userData?.type === 'measureDimStart') o.parent?.remove(o); });
       sceneRef.current.add(dimGroup);
       // Bag in measurementsRef as a single unit (line=segL acts as removable handle)
       measureLineRef.current = segL;
@@ -2235,9 +2256,42 @@ export default function SceneEditor() {
     checkAllCollisions();
   };
 
+  // Cast a ray downward from (x, z) at y=10 and return the first horizontal-ish surface Y
+  // (face normal world.y > 0.6). Skip a given object's own mesh + measure / helper objects.
+  const getSurfaceTopY = (x: number, z: number, skipMesh?: THREE.Object3D): number => {
+    if (!sceneRef.current) return 0;
+    const origin = new THREE.Vector3(x, 10, z);
+    const dir = new THREE.Vector3(0, -1, 0);
+    const ray = new THREE.Raycaster(origin, dir, 0, 12);
+    const targets: THREE.Object3D[] = [];
+    sceneRef.current.traverse((o) => {
+      if (!o.visible) return;
+      if (skipMesh && (o === skipMesh || skipMesh.getObjectById(o.id))) return;
+      const t = o.userData?.type;
+      if (t === 'snapMarker' || t === 'snapMarkers' || t === 'measureDim' || t === 'measureDimStart' || t === 'snapLines' || t === 'autoMeasures' || t === 'dropIndicator') return;
+      if (o.parent?.userData?.type === 'snapMarkers') return;
+      if (o.name === 'sky') return;
+      if ((o as THREE.Mesh).isMesh) targets.push(o);
+    });
+    const hits = ray.intersectObjects(targets, false);
+    for (const h of hits) {
+      if (!h.face) continue;
+      const n = h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
+      if (n.y > 0.6) return h.point.y;
+    }
+    return 0;
+  };
+
   const placeObjectAt = (item: CatalogItem, pos: THREE.Vector3) => {
     if (!sceneRef.current) return;
-    const obj = createPlacedObject(item, pos);
+    // Surface-top snap: small countertop items get placed on top of furniture/tables
+    const isCountertop = item.height < 0.6 || ['coffee-machine', 'kettle', 'toaster', 'microwave'].includes(item.id);
+    let placeY = pos.y;
+    if (isCountertop) {
+      const surfY = getSurfaceTopY(pos.x, pos.z);
+      if (surfY > 0.05) placeY = surfY;
+    }
+    const obj = createPlacedObject(item, new THREE.Vector3(pos.x, placeY, pos.z));
     sceneRef.current.add(obj.mesh);
     objectsRef.current.push(obj);
     setObjectCount(objectsRef.current.length);
@@ -2805,7 +2859,15 @@ export default function SceneEditor() {
           const [sx, sz] = snapWithIndicators(fpDraggingRef.current, target.x, target.z);
           fpDraggingRef.current.mesh.position.x = sx;
           fpDraggingRef.current.mesh.position.z = sz;
-          fpDraggingRef.current.mesh.position.y = 0;
+          // Surface-top snap for small items
+          const it = fpDraggingRef.current;
+          const isCountertop = it.dimensions.height < 0.6 || ['coffee-machine', 'kettle', 'toaster', 'microwave'].includes(it.catalogId);
+          let yy = 0;
+          if (isCountertop) {
+            const surfY = getSurfaceTopY(sx, sz, it.mesh);
+            if (surfY > 0.05) yy = surfY;
+          }
+          fpDraggingRef.current.mesh.position.y = yy;
           updateDropIndicator(fpDraggingRef.current, sx, sz);
         }
       }
@@ -2814,9 +2876,8 @@ export default function SceneEditor() {
       if (e.button === 2) { mouseDown = false; el.style.cursor = 'crosshair'; return; }
       if (e.button !== 0) return;
 
-      // Drop dragged object
+      // Drop dragged object — preserve surface-snap Y already set during drag
       if (fpDraggingRef.current) {
-        fpDraggingRef.current.mesh.position.y = 0;
         clearSnapLines();
         hideDropIndicator();
         setStatusMsg(`Plasat: ${fpDraggingRef.current.name}`);
