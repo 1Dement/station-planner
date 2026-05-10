@@ -69,15 +69,13 @@ export async function preloadGLBModels(items: CatalogItem[]): Promise<void> {
               child.receiveShadow = true;
             }
           });
-          // Scale uniform to fill bounding box: longest catalog axis matches longest GLB axis.
-          // Math.min FIT-INSIDE shrinks model excessively when GLB & catalog proportions diverge.
-          // Math.max FILL-CONTAINER preserves proportions and keeps model visually right-sized.
+          // Scale anchor pe inaltime: model real height = catalog height (Y up).
+          // Furniture sta pe podea, height e dimensiunea vizuala critica. Width/depth derivate
+          // proportional din GLB — pot diferi usor de catalog daca GLB are alte proportii.
           const box = new THREE.Box3().setFromObject(model);
           const size = new THREE.Vector3();
           box.getSize(size);
-          const targetMax = Math.max(item.width, item.height, item.depth);
-          const sourceMax = Math.max(size.x, size.y, size.z);
-          const scale = sourceMax > 0 ? targetMax / sourceMax : 1;
+          const scale = size.y > 0 ? item.height / size.y : 1;
           model.scale.multiplyScalar(scale);
           // Center on XZ, align bottom to Y=0
           const box2 = new THREE.Box3().setFromObject(model);
