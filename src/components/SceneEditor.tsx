@@ -2031,15 +2031,9 @@ export default function SceneEditor() {
         const rawX = floorPoint.x + dragOffsetRef.current.x;
         const rawZ = floorPoint.z + dragOffsetRef.current.z;
 
-        const bounds = buildingBoundsRef.current;
-        let bx = rawX, bz = rawZ;
-        if (bounds) {
-          const hw = obj.dimensions.width / 2, hd = obj.dimensions.depth / 2;
-          bx = Math.max(bounds.minX + hw, Math.min(bounds.maxX - hw, bx));
-          bz = Math.max(bounds.minZ + hd, Math.min(bounds.maxZ - hd, bz));
-        }
-
-        const [nx, nz] = snapWithIndicators(obj, bx, bz);
+        // Bounds clamp removed — user can drag obiecte oriunde, inclusiv afara statiei (exterior amenajare).
+        // Snap-to-wall pastrat in snapWithIndicators (snap doar cand approach <60cm).
+        const [nx, nz] = snapWithIndicators(obj, rawX, rawZ);
         obj.mesh.position.x = nx;
         obj.mesh.position.z = nz;
         obj.mesh.position.y = 0;
