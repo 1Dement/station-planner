@@ -1853,14 +1853,8 @@ export default function SceneEditor() {
       // Always record mousedown for measure tool drag-vs-click detection
       mouseDownPosRef.current.set(e.clientX, e.clientY);
       if (measureModeRef.current) return; // measure handled in mouseUp
-      if (!orbitEditRef.current) return; // No further interaction in non-edit mode
 
-      const rect = el.getBoundingClientRect();
-      mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
-
-      // Pending click-to-place: drop the queued catalog item at click position
+      // Pending click-to-place: works in any mode (free browse + edit), checked BEFORE orbitEdit gate
       if (pendingPlaceRef.current) {
         const fp = getFloorIntersection(e.clientX, e.clientY);
         if (fp) {
@@ -1873,6 +1867,13 @@ export default function SceneEditor() {
           return;
         }
       }
+
+      if (!orbitEditRef.current) return; // No drag/select outside edit mode
+
+      const rect = el.getBoundingClientRect();
+      mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current!);
 
       // Click on object = select + prepare drag (suspend orbit while dragging)
       // Map every hit to its top-level placed object, pick the closest *that is actually visible*
