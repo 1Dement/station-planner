@@ -1868,7 +1868,8 @@ export default function SceneEditor() {
         }
       }
 
-      if (!orbitEditRef.current) return; // No drag/select outside edit mode
+      // Removed orbitEdit gate — select+drag also works in free/browse mode for fluent UX.
+      // Orbit camera continues to work cand click-ul nu loveste niciun obiect (no early return on miss).
 
       const rect = el.getBoundingClientRect();
       mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2017,7 +2018,7 @@ export default function SceneEditor() {
         return;
       }
 
-      if (!orbitEditRef.current) return;
+      // Removed orbitEdit gate — drag movement works in any mode if drag started in mousedown.
 
       if (!isDraggingRef.current || !selectedRef.current) {
         el.style.cursor = 'crosshair';
