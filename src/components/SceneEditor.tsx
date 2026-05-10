@@ -13,7 +13,7 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { CATALOG, CATEGORIES, CatalogItem, getCatalogByCategory } from '@/lib/catalog';
 import {
   PlacedObject, createPlacedObject, highlightObject,
-  checkCollision, getDistance, exportLayout
+  checkCollision, getDistance, exportLayout, preloadGLBModels
 } from '@/lib/scene-objects';
 import { loadBuildingIntoScene, snapToWall, WallSegment, DoorPanel, SlidingDoor } from '@/lib/building-loader';
 import type { Wall, Hole } from '@/lib/wall-tool';
@@ -1259,6 +1259,9 @@ export default function SceneEditor() {
   // Initialize Three.js scene
   useEffect(() => {
     if (!canvasRef.current) return;
+
+    // Preload GLB models cu PBR (silent fallback la procedural daca lipsesc)
+    preloadGLBModels(CATALOG).catch(() => {});
 
     const scene = new THREE.Scene();
     // Sky shader (Potree-style atmospheric scattering)
@@ -3144,9 +3147,19 @@ export default function SceneEditor() {
       >
         <div className="w-full h-full flex flex-col">
           {/* Header */}
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid #e5e5ea' }}>
-            <h1 className="text-sm font-semibold" style={{ color: '#1d1d1f' }}>Station Planner</h1>
-            <p className="text-[11px] mt-0.5" style={{ color: '#86868b' }}>Planificare spatiu statie</p>
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid #e5e5ea' }}>
+            <div>
+              <h1 className="text-sm font-semibold" style={{ color: '#1d1d1f' }}>Station Planner</h1>
+              <p className="text-[11px] mt-0.5" style={{ color: '#86868b' }}>Planificare spatiu statie</p>
+            </div>
+            <a
+              href="/library"
+              title="Catalog 3D IKEA-style"
+              className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium transition-all hover:opacity-90"
+              style={{ background: '#c9a227', color: '#0a0a0f', textDecoration: 'none', whiteSpace: 'nowrap' }}
+            >
+              📚 Catalog 3D
+            </a>
           </div>
 
           {/* Point Cloud + Dims */}

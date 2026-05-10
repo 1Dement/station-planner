@@ -51,7 +51,9 @@ export function createObjectMesh(item: CatalogItem): THREE.Object3D {
 // Async loader for GLB — call once at startup to preload
 export async function preloadGLBModels(items: CatalogItem[]): Promise<void> {
   const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  const { MeshoptDecoder } = await import('three/examples/jsm/libs/meshopt_decoder.module.js');
   const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
 
   const glbItems = items.filter(i => i.glb);
   await Promise.all(glbItems.map(item => {
@@ -67,11 +69,15 @@ export async function preloadGLBModels(items: CatalogItem[]): Promise<void> {
               child.receiveShadow = true;
             }
           });
-          // Scale to match catalog dimensions
+          // Scale uniform to fill bounding box: longest catalog axis matches longest GLB axis.
+          // Math.min FIT-INSIDE shrinks model excessively when GLB & catalog proportions diverge.
+          // Math.max FILL-CONTAINER preserves proportions and keeps model visually right-sized.
           const box = new THREE.Box3().setFromObject(model);
           const size = new THREE.Vector3();
           box.getSize(size);
-          const scale = Math.min(item.width / size.x, item.height / size.y, item.depth / size.z);
+          const targetMax = Math.max(item.width, item.height, item.depth);
+          const sourceMax = Math.max(size.x, size.y, size.z);
+          const scale = sourceMax > 0 ? targetMax / sourceMax : 1;
           model.scale.multiplyScalar(scale);
           // Center on XZ, align bottom to Y=0
           const box2 = new THREE.Box3().setFromObject(model);

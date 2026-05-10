@@ -342,6 +342,16 @@ export const CATALOG: CatalogItem[] = [
 
   // ===== MOBILIER =====
   {
+    id: 'o1-c12',
+    name: 'Masă simplă OMV',
+    category: 'furniture',
+    width: 0.60, depth: 0.45, height: 0.75,
+    color: '#B07A57', clearance: 0.6,
+    description: 'Scan SHARE C1 → 3DGS → TRELLIS GLB cu PBR. Blat lemn, picior central, bază metalică. Statia OMV Pipera.',
+    icon: '🪑',
+    glb: 'O1-C12.glb',
+  },
+  {
     id: 'bar-table-long',
     name: 'Masă Bar Lungă',
     category: 'furniture',
@@ -538,6 +548,16 @@ export const CATALOG: CatalogItem[] = [
   },
 
   // ===== SEMNALISTICĂ =====
+  {
+    id: 'o2-c13',
+    name: 'Totem Gas OMV',
+    category: 'signage',
+    width: 1.20, depth: 0.30, height: 5.00,
+    color: '#FF0000', clearance: 1.0,
+    description: 'Scan SHARE C1 → 3DGS → TRELLIS GLB cu PBR. Totem prețuri carburanți LED, statia OMV Pipera.',
+    icon: '🪧',
+    glb: 'O2-C13.glb',
+  },
   {
     id: 'price-totem',
     name: 'Totem Prețuri Carburanți',
