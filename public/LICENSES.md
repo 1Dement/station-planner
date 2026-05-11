@@ -39,6 +39,31 @@ Cand este integrat un model Sketchfab CC-BY 4.0, atribuire obligatorie aici + (r
 - **"POS Terminal Cash Register"** by [dgsamples](https://sketchfab.com/dgsamples) — CC-BY 4.0 — `O15-T01.glb` (`o15-t01`)
 - **"Commercial Garbage Bin Outdoor 2"** by [3dlakour](https://sketchfab.com/3dlakour) — CC-BY 4.0 — `O16-O02.glb` (`o16-o02`)
 
+### Batch 3 (11 Mai 2026) — Poly Haven CC0 Auto-DL
+
+All Poly Haven models are CC0 (Public Domain). Funded by Patreon community. Source: [polyhaven.com/models](https://polyhaven.com/models).
+
+- **"CashRegister_01"** — `O17-PH01.glb` (`o17-ph01` Casă Marcat Vintage)
+- **"CoffeeCart_01"** — `O18-PH02.glb` (`o18-ph02` Cărucior Cafea)
+- **"Barrel_01"** — `O19-PH03.glb` (`o19-ph03` Butoi Metalic)
+- **"Barrel_02"** — `O20-PH04.glb` (`o20-ph04` Butoi Plastic)
+- **"WetFloorSign_01"** — `O21-PH05.glb` (`o21-ph05` Semn Podea)
+- **"steel_frame_shelves_01"** — `O22-PH06.glb` (`o22-ph06` Raft Industrial)
+- **"steel_frame_shelves_02"** — `O23-PH07.glb` (`o23-ph07`)
+- **"steel_frame_shelves_03"** — `O24-PH08.glb` (`o24-ph08`)
+- **"wooden_display_shelves_01"** — `O25-PH09.glb` (`o25-ph09` Raft Lemn)
+- **"wooden_crate_01"** — `O26-PH10.glb` (`o26-ph10`)
+- **"wooden_crate_02"** — `O27-PH11.glb` (`o27-ph11`)
+- **"cardboard_box_01"** — `O28-PH12.glb` (`o28-ph12`)
+- **"hand_truck"** — `O29-PH13.glb` (`o29-ph13`)
+- **"tire_pump"** — `O30-PH14.glb` (`o30-ph14` Pompă Aer Vintage)
+- **"propane_tank"** — `O31-PH15.glb` (`o31-ph15`)
+- **"small_lpg_tank"** — `O32-PH16.glb` (`o32-ph16`)
+- **"small_oil_can_01"** — `O33-PH17.glb` (`o33-ph17`)
+- **"security_camera_01"** — `O34-PH18.glb` (`o34-ph18`)
+- **"wooden_stool_01"** — `O35-PH19.glb` (`o35-ph19`)
+- **"metal_stool_01"** — `O36-PH20.glb` (`o36-ph20`)
+
 
 ## 3D Warehouse Models
 
