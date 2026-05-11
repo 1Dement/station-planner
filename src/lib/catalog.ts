@@ -44,6 +44,16 @@ export const CATALOG: CatalogItem[] = [
     icon: '🗄️',
   },
   {
+    id: 'o3-g01',
+    name: 'Gondolă Băuturi OMV',
+    category: 'shelving',
+    width: 1.00, depth: 0.60, height: 1.80,
+    color: '#A0A0A0', clearance: 0.9,
+    description: 'Gondolă populată cu sticle Coca/apă pe rafturi. Model PBR realistic Sketchfab CC-BY (Rendevr).',
+    icon: '🥤',
+    glb: 'O3-G01.glb',
+  },
+  {
     id: 'gondola-double-60',
     name: 'Gondolă Dublă 60cm',
     category: 'shelving',
@@ -137,6 +147,16 @@ export const CATALOG: CatalogItem[] = [
   },
 
   // ===== FRIGIDERE & VITRINE =====
+  {
+    id: 'o4-f02',
+    name: 'Frigider Coca-Cola Vintage',
+    category: 'refrigeration',
+    width: 0.65, depth: 0.65, height: 1.70,
+    color: '#CC0000', clearance: 0.5,
+    description: 'Frigider Coca-Cola vintage realistic cu branding rosu. Model 3D Sketchfab CC-BY.',
+    icon: '🥤',
+    glb: 'O4-F02.glb',
+  },
   {
     id: 'fridge-1door',
     name: 'Frigider 1 Ușă',
