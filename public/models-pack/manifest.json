@@ -1,0 +1,1762 @@
+[
+  {
+    "id": "kenney-minimarket-bottle-return",
+    "pack": "mini-market",
+    "name": "Bottle Return",
+    "filename": "bottle-return.glb",
+    "glb": "/models-pack/mini-market/bottle-return.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-cash-register",
+    "pack": "mini-market",
+    "name": "Cash Register",
+    "filename": "cash-register.glb",
+    "glb": "/models-pack/mini-market/cash-register.glb",
+    "category": "checkout"
+  },
+  {
+    "id": "kenney-minimarket-character-employee",
+    "pack": "mini-market",
+    "name": "Character Employee",
+    "filename": "character-employee.glb",
+    "glb": "/models-pack/mini-market/character-employee.glb",
+    "category": "decor"
+  },
+  {
+    "id": "kenney-minimarket-column",
+    "pack": "mini-market",
+    "name": "Column",
+    "filename": "column.glb",
+    "glb": "/models-pack/mini-market/column.glb",
+    "category": "shelving"
+  },
+  {
+    "id": "kenney-minimarket-display-bread",
+    "pack": "mini-market",
+    "name": "Display Bread",
+    "filename": "display-bread.glb",
+    "glb": "/models-pack/mini-market/display-bread.glb",
+    "category": "shelving"
+  },
+  {
+    "id": "kenney-minimarket-display-fruit",
+    "pack": "mini-market",
+    "name": "Display Fruit",
+    "filename": "display-fruit.glb",
+    "glb": "/models-pack/mini-market/display-fruit.glb",
+    "category": "shelving"
+  },
+  {
+    "id": "kenney-minimarket-fence-door-rotate",
+    "pack": "mini-market",
+    "name": "Fence Door Rotate",
+    "filename": "fence-door-rotate.glb",
+    "glb": "/models-pack/mini-market/fence-door-rotate.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-fence",
+    "pack": "mini-market",
+    "name": "Fence",
+    "filename": "fence.glb",
+    "glb": "/models-pack/mini-market/fence.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-floor",
+    "pack": "mini-market",
+    "name": "Floor",
+    "filename": "floor.glb",
+    "glb": "/models-pack/mini-market/floor.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-freezer",
+    "pack": "mini-market",
+    "name": "Freezer",
+    "filename": "freezer.glb",
+    "glb": "/models-pack/mini-market/freezer.glb",
+    "category": "refrigeration"
+  },
+  {
+    "id": "kenney-minimarket-freezers-standing",
+    "pack": "mini-market",
+    "name": "Freezers Standing",
+    "filename": "freezers-standing.glb",
+    "glb": "/models-pack/mini-market/freezers-standing.glb",
+    "category": "refrigeration"
+  },
+  {
+    "id": "kenney-minimarket-shelf-bags",
+    "pack": "mini-market",
+    "name": "Shelf Bags",
+    "filename": "shelf-bags.glb",
+    "glb": "/models-pack/mini-market/shelf-bags.glb",
+    "category": "shelving"
+  },
+  {
+    "id": "kenney-minimarket-shelf-boxes",
+    "pack": "mini-market",
+    "name": "Shelf Boxes",
+    "filename": "shelf-boxes.glb",
+    "glb": "/models-pack/mini-market/shelf-boxes.glb",
+    "category": "shelving"
+  },
+  {
+    "id": "kenney-minimarket-shelf-end",
+    "pack": "mini-market",
+    "name": "Shelf End",
+    "filename": "shelf-end.glb",
+    "glb": "/models-pack/mini-market/shelf-end.glb",
+    "category": "shelving"
+  },
+  {
+    "id": "kenney-minimarket-shopping-basket",
+    "pack": "mini-market",
+    "name": "Shopping Basket",
+    "filename": "shopping-basket.glb",
+    "glb": "/models-pack/mini-market/shopping-basket.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-shopping-cart",
+    "pack": "mini-market",
+    "name": "Shopping Cart",
+    "filename": "shopping-cart.glb",
+    "glb": "/models-pack/mini-market/shopping-cart.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-wall-corner",
+    "pack": "mini-market",
+    "name": "Wall Corner",
+    "filename": "wall-corner.glb",
+    "glb": "/models-pack/mini-market/wall-corner.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-wall-door-rotate",
+    "pack": "mini-market",
+    "name": "Wall Door Rotate",
+    "filename": "wall-door-rotate.glb",
+    "glb": "/models-pack/mini-market/wall-door-rotate.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-wall-window",
+    "pack": "mini-market",
+    "name": "Wall Window",
+    "filename": "wall-window.glb",
+    "glb": "/models-pack/mini-market/wall-window.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-minimarket-wall",
+    "pack": "mini-market",
+    "name": "Wall",
+    "filename": "wall.glb",
+    "glb": "/models-pack/mini-market/wall.glb",
+    "category": "storage"
+  },
+  {
+    "id": "kenney-foodkit-advocado-half",
+    "pack": "food-kit",
+    "name": "Advocado Half",
+    "filename": "advocado-half.glb",
+    "glb": "/models-pack/food-kit/advocado-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-apple-half",
+    "pack": "food-kit",
+    "name": "Apple Half",
+    "filename": "apple-half.glb",
+    "glb": "/models-pack/food-kit/apple-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-apple",
+    "pack": "food-kit",
+    "name": "Apple",
+    "filename": "apple.glb",
+    "glb": "/models-pack/food-kit/apple.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-avocado",
+    "pack": "food-kit",
+    "name": "Avocado",
+    "filename": "avocado.glb",
+    "glb": "/models-pack/food-kit/avocado.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bacon-raw",
+    "pack": "food-kit",
+    "name": "Bacon Raw",
+    "filename": "bacon-raw.glb",
+    "glb": "/models-pack/food-kit/bacon-raw.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bacon",
+    "pack": "food-kit",
+    "name": "Bacon",
+    "filename": "bacon.glb",
+    "glb": "/models-pack/food-kit/bacon.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bag-flat",
+    "pack": "food-kit",
+    "name": "Bag Flat",
+    "filename": "bag-flat.glb",
+    "glb": "/models-pack/food-kit/bag-flat.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bag",
+    "pack": "food-kit",
+    "name": "Bag",
+    "filename": "bag.glb",
+    "glb": "/models-pack/food-kit/bag.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-banana",
+    "pack": "food-kit",
+    "name": "Banana",
+    "filename": "banana.glb",
+    "glb": "/models-pack/food-kit/banana.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-barrel",
+    "pack": "food-kit",
+    "name": "Barrel",
+    "filename": "barrel.glb",
+    "glb": "/models-pack/food-kit/barrel.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-beet",
+    "pack": "food-kit",
+    "name": "Beet",
+    "filename": "beet.glb",
+    "glb": "/models-pack/food-kit/beet.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bottle-ketchup",
+    "pack": "food-kit",
+    "name": "Bottle Ketchup",
+    "filename": "bottle-ketchup.glb",
+    "glb": "/models-pack/food-kit/bottle-ketchup.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bottle-musterd",
+    "pack": "food-kit",
+    "name": "Bottle Musterd",
+    "filename": "bottle-musterd.glb",
+    "glb": "/models-pack/food-kit/bottle-musterd.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bottle-oil",
+    "pack": "food-kit",
+    "name": "Bottle Oil",
+    "filename": "bottle-oil.glb",
+    "glb": "/models-pack/food-kit/bottle-oil.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bowl-broth",
+    "pack": "food-kit",
+    "name": "Bowl Broth",
+    "filename": "bowl-broth.glb",
+    "glb": "/models-pack/food-kit/bowl-broth.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bowl-cereal",
+    "pack": "food-kit",
+    "name": "Bowl Cereal",
+    "filename": "bowl-cereal.glb",
+    "glb": "/models-pack/food-kit/bowl-cereal.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bowl-soup",
+    "pack": "food-kit",
+    "name": "Bowl Soup",
+    "filename": "bowl-soup.glb",
+    "glb": "/models-pack/food-kit/bowl-soup.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bowl",
+    "pack": "food-kit",
+    "name": "Bowl",
+    "filename": "bowl.glb",
+    "glb": "/models-pack/food-kit/bowl.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-bread",
+    "pack": "food-kit",
+    "name": "Bread",
+    "filename": "bread.glb",
+    "glb": "/models-pack/food-kit/bread.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-broccoli",
+    "pack": "food-kit",
+    "name": "Broccoli",
+    "filename": "broccoli.glb",
+    "glb": "/models-pack/food-kit/broccoli.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-burger-cheese-double",
+    "pack": "food-kit",
+    "name": "Burger Cheese Double",
+    "filename": "burger-cheese-double.glb",
+    "glb": "/models-pack/food-kit/burger-cheese-double.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-burger-cheese",
+    "pack": "food-kit",
+    "name": "Burger Cheese",
+    "filename": "burger-cheese.glb",
+    "glb": "/models-pack/food-kit/burger-cheese.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-burger-double",
+    "pack": "food-kit",
+    "name": "Burger Double",
+    "filename": "burger-double.glb",
+    "glb": "/models-pack/food-kit/burger-double.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-burger",
+    "pack": "food-kit",
+    "name": "Burger",
+    "filename": "burger.glb",
+    "glb": "/models-pack/food-kit/burger.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cabbage",
+    "pack": "food-kit",
+    "name": "Cabbage",
+    "filename": "cabbage.glb",
+    "glb": "/models-pack/food-kit/cabbage.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cake-birthday",
+    "pack": "food-kit",
+    "name": "Cake Birthday",
+    "filename": "cake-birthday.glb",
+    "glb": "/models-pack/food-kit/cake-birthday.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cake-slicer",
+    "pack": "food-kit",
+    "name": "Cake Slicer",
+    "filename": "cake-slicer.glb",
+    "glb": "/models-pack/food-kit/cake-slicer.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cake",
+    "pack": "food-kit",
+    "name": "Cake",
+    "filename": "cake.glb",
+    "glb": "/models-pack/food-kit/cake.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-can-open",
+    "pack": "food-kit",
+    "name": "Can Open",
+    "filename": "can-open.glb",
+    "glb": "/models-pack/food-kit/can-open.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-can-small",
+    "pack": "food-kit",
+    "name": "Can Small",
+    "filename": "can-small.glb",
+    "glb": "/models-pack/food-kit/can-small.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-can",
+    "pack": "food-kit",
+    "name": "Can",
+    "filename": "can.glb",
+    "glb": "/models-pack/food-kit/can.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-candy-bar-wrapper",
+    "pack": "food-kit",
+    "name": "Candy Bar Wrapper",
+    "filename": "candy-bar-wrapper.glb",
+    "glb": "/models-pack/food-kit/candy-bar-wrapper.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-candy-bar",
+    "pack": "food-kit",
+    "name": "Candy Bar",
+    "filename": "candy-bar.glb",
+    "glb": "/models-pack/food-kit/candy-bar.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-carrot",
+    "pack": "food-kit",
+    "name": "Carrot",
+    "filename": "carrot.glb",
+    "glb": "/models-pack/food-kit/carrot.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-carton-small",
+    "pack": "food-kit",
+    "name": "Carton Small",
+    "filename": "carton-small.glb",
+    "glb": "/models-pack/food-kit/carton-small.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-carton",
+    "pack": "food-kit",
+    "name": "Carton",
+    "filename": "carton.glb",
+    "glb": "/models-pack/food-kit/carton.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cauliflower",
+    "pack": "food-kit",
+    "name": "Cauliflower",
+    "filename": "cauliflower.glb",
+    "glb": "/models-pack/food-kit/cauliflower.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-celery-stick",
+    "pack": "food-kit",
+    "name": "Celery Stick",
+    "filename": "celery-stick.glb",
+    "glb": "/models-pack/food-kit/celery-stick.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cheese-cut",
+    "pack": "food-kit",
+    "name": "Cheese Cut",
+    "filename": "cheese-cut.glb",
+    "glb": "/models-pack/food-kit/cheese-cut.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cheese-slicer",
+    "pack": "food-kit",
+    "name": "Cheese Slicer",
+    "filename": "cheese-slicer.glb",
+    "glb": "/models-pack/food-kit/cheese-slicer.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cheese",
+    "pack": "food-kit",
+    "name": "Cheese",
+    "filename": "cheese.glb",
+    "glb": "/models-pack/food-kit/cheese.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cherries",
+    "pack": "food-kit",
+    "name": "Cherries",
+    "filename": "cherries.glb",
+    "glb": "/models-pack/food-kit/cherries.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-chinese",
+    "pack": "food-kit",
+    "name": "Chinese",
+    "filename": "chinese.glb",
+    "glb": "/models-pack/food-kit/chinese.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-chocolate-wrapper",
+    "pack": "food-kit",
+    "name": "Chocolate Wrapper",
+    "filename": "chocolate-wrapper.glb",
+    "glb": "/models-pack/food-kit/chocolate-wrapper.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-chocolate",
+    "pack": "food-kit",
+    "name": "Chocolate",
+    "filename": "chocolate.glb",
+    "glb": "/models-pack/food-kit/chocolate.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-chopstic-decorative",
+    "pack": "food-kit",
+    "name": "Chopstic Decorative",
+    "filename": "chopstic-decorative.glb",
+    "glb": "/models-pack/food-kit/chopstic-decorative.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-chopstick",
+    "pack": "food-kit",
+    "name": "Chopstick",
+    "filename": "chopstick.glb",
+    "glb": "/models-pack/food-kit/chopstick.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cocktail",
+    "pack": "food-kit",
+    "name": "Cocktail",
+    "filename": "cocktail.glb",
+    "glb": "/models-pack/food-kit/cocktail.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-coconut-half",
+    "pack": "food-kit",
+    "name": "Coconut Half",
+    "filename": "coconut-half.glb",
+    "glb": "/models-pack/food-kit/coconut-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-coconut",
+    "pack": "food-kit",
+    "name": "Coconut",
+    "filename": "coconut.glb",
+    "glb": "/models-pack/food-kit/coconut.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cookie-chocolate",
+    "pack": "food-kit",
+    "name": "Cookie Chocolate",
+    "filename": "cookie-chocolate.glb",
+    "glb": "/models-pack/food-kit/cookie-chocolate.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cookie",
+    "pack": "food-kit",
+    "name": "Cookie",
+    "filename": "cookie.glb",
+    "glb": "/models-pack/food-kit/cookie.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cooking-fork",
+    "pack": "food-kit",
+    "name": "Cooking Fork",
+    "filename": "cooking-fork.glb",
+    "glb": "/models-pack/food-kit/cooking-fork.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cooking-knife-chopping",
+    "pack": "food-kit",
+    "name": "Cooking Knife Chopping",
+    "filename": "cooking-knife-chopping.glb",
+    "glb": "/models-pack/food-kit/cooking-knife-chopping.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cooking-knife",
+    "pack": "food-kit",
+    "name": "Cooking Knife",
+    "filename": "cooking-knife.glb",
+    "glb": "/models-pack/food-kit/cooking-knife.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cooking-spatula",
+    "pack": "food-kit",
+    "name": "Cooking Spatula",
+    "filename": "cooking-spatula.glb",
+    "glb": "/models-pack/food-kit/cooking-spatula.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cooking-spoon",
+    "pack": "food-kit",
+    "name": "Cooking Spoon",
+    "filename": "cooking-spoon.glb",
+    "glb": "/models-pack/food-kit/cooking-spoon.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-corn-dog",
+    "pack": "food-kit",
+    "name": "Corn Dog",
+    "filename": "corn-dog.glb",
+    "glb": "/models-pack/food-kit/corn-dog.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-corn",
+    "pack": "food-kit",
+    "name": "Corn",
+    "filename": "corn.glb",
+    "glb": "/models-pack/food-kit/corn.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-croissant",
+    "pack": "food-kit",
+    "name": "Croissant",
+    "filename": "croissant.glb",
+    "glb": "/models-pack/food-kit/croissant.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cup-coffee",
+    "pack": "food-kit",
+    "name": "Cup Coffee",
+    "filename": "cup-coffee.glb",
+    "glb": "/models-pack/food-kit/cup-coffee.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cup-saucer",
+    "pack": "food-kit",
+    "name": "Cup Saucer",
+    "filename": "cup-saucer.glb",
+    "glb": "/models-pack/food-kit/cup-saucer.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cup-tea",
+    "pack": "food-kit",
+    "name": "Cup Tea",
+    "filename": "cup-tea.glb",
+    "glb": "/models-pack/food-kit/cup-tea.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cup",
+    "pack": "food-kit",
+    "name": "Cup",
+    "filename": "cup.glb",
+    "glb": "/models-pack/food-kit/cup.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cupcake",
+    "pack": "food-kit",
+    "name": "Cupcake",
+    "filename": "cupcake.glb",
+    "glb": "/models-pack/food-kit/cupcake.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cutting-board-japanese",
+    "pack": "food-kit",
+    "name": "Cutting Board Japanese",
+    "filename": "cutting-board-japanese.glb",
+    "glb": "/models-pack/food-kit/cutting-board-japanese.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cutting-board-round",
+    "pack": "food-kit",
+    "name": "Cutting Board Round",
+    "filename": "cutting-board-round.glb",
+    "glb": "/models-pack/food-kit/cutting-board-round.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-cutting-board",
+    "pack": "food-kit",
+    "name": "Cutting Board",
+    "filename": "cutting-board.glb",
+    "glb": "/models-pack/food-kit/cutting-board.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-dim-sum",
+    "pack": "food-kit",
+    "name": "Dim Sum",
+    "filename": "dim-sum.glb",
+    "glb": "/models-pack/food-kit/dim-sum.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-donut-chocolate",
+    "pack": "food-kit",
+    "name": "Donut Chocolate",
+    "filename": "donut-chocolate.glb",
+    "glb": "/models-pack/food-kit/donut-chocolate.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-donut-sprinkles",
+    "pack": "food-kit",
+    "name": "Donut Sprinkles",
+    "filename": "donut-sprinkles.glb",
+    "glb": "/models-pack/food-kit/donut-sprinkles.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-donut",
+    "pack": "food-kit",
+    "name": "Donut",
+    "filename": "donut.glb",
+    "glb": "/models-pack/food-kit/donut.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-egg-cooked",
+    "pack": "food-kit",
+    "name": "Egg Cooked",
+    "filename": "egg-cooked.glb",
+    "glb": "/models-pack/food-kit/egg-cooked.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-egg-cup",
+    "pack": "food-kit",
+    "name": "Egg Cup",
+    "filename": "egg-cup.glb",
+    "glb": "/models-pack/food-kit/egg-cup.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-egg-half",
+    "pack": "food-kit",
+    "name": "Egg Half",
+    "filename": "egg-half.glb",
+    "glb": "/models-pack/food-kit/egg-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-egg",
+    "pack": "food-kit",
+    "name": "Egg",
+    "filename": "egg.glb",
+    "glb": "/models-pack/food-kit/egg.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-eggplant",
+    "pack": "food-kit",
+    "name": "Eggplant",
+    "filename": "eggplant.glb",
+    "glb": "/models-pack/food-kit/eggplant.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-fish-bones",
+    "pack": "food-kit",
+    "name": "Fish Bones",
+    "filename": "fish-bones.glb",
+    "glb": "/models-pack/food-kit/fish-bones.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-fish",
+    "pack": "food-kit",
+    "name": "Fish",
+    "filename": "fish.glb",
+    "glb": "/models-pack/food-kit/fish.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-frappe",
+    "pack": "food-kit",
+    "name": "Frappe",
+    "filename": "frappe.glb",
+    "glb": "/models-pack/food-kit/frappe.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-fries-empty",
+    "pack": "food-kit",
+    "name": "Fries Empty",
+    "filename": "fries-empty.glb",
+    "glb": "/models-pack/food-kit/fries-empty.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-fries",
+    "pack": "food-kit",
+    "name": "Fries",
+    "filename": "fries.glb",
+    "glb": "/models-pack/food-kit/fries.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-frikandel-speciaal",
+    "pack": "food-kit",
+    "name": "Frikandel Speciaal",
+    "filename": "frikandel-speciaal.glb",
+    "glb": "/models-pack/food-kit/frikandel-speciaal.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-frying-pan-lid",
+    "pack": "food-kit",
+    "name": "Frying Pan Lid",
+    "filename": "frying-pan-lid.glb",
+    "glb": "/models-pack/food-kit/frying-pan-lid.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-frying-pan",
+    "pack": "food-kit",
+    "name": "Frying Pan",
+    "filename": "frying-pan.glb",
+    "glb": "/models-pack/food-kit/frying-pan.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-ginger-bread-cutter",
+    "pack": "food-kit",
+    "name": "Ginger Bread Cutter",
+    "filename": "ginger-bread-cutter.glb",
+    "glb": "/models-pack/food-kit/ginger-bread-cutter.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-ginger-bread",
+    "pack": "food-kit",
+    "name": "Ginger Bread",
+    "filename": "ginger-bread.glb",
+    "glb": "/models-pack/food-kit/ginger-bread.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-glass-wine",
+    "pack": "food-kit",
+    "name": "Glass Wine",
+    "filename": "glass-wine.glb",
+    "glb": "/models-pack/food-kit/glass-wine.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-glass",
+    "pack": "food-kit",
+    "name": "Glass",
+    "filename": "glass.glb",
+    "glb": "/models-pack/food-kit/glass.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-grapes",
+    "pack": "food-kit",
+    "name": "Grapes",
+    "filename": "grapes.glb",
+    "glb": "/models-pack/food-kit/grapes.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-honey",
+    "pack": "food-kit",
+    "name": "Honey",
+    "filename": "honey.glb",
+    "glb": "/models-pack/food-kit/honey.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-hot-dog-raw",
+    "pack": "food-kit",
+    "name": "Hot Dog Raw",
+    "filename": "hot-dog-raw.glb",
+    "glb": "/models-pack/food-kit/hot-dog-raw.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-hot-dog",
+    "pack": "food-kit",
+    "name": "Hot Dog",
+    "filename": "hot-dog.glb",
+    "glb": "/models-pack/food-kit/hot-dog.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-ice-cream-cne",
+    "pack": "food-kit",
+    "name": "Ice Cream Cne",
+    "filename": "ice-cream-cne.glb",
+    "glb": "/models-pack/food-kit/ice-cream-cne.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-ice-cream-cup",
+    "pack": "food-kit",
+    "name": "Ice Cream Cup",
+    "filename": "ice-cream-cup.glb",
+    "glb": "/models-pack/food-kit/ice-cream-cup.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-ice-cream-scoop-chocolate",
+    "pack": "food-kit",
+    "name": "Ice Cream Scoop Chocolate",
+    "filename": "ice-cream-scoop-chocolate.glb",
+    "glb": "/models-pack/food-kit/ice-cream-scoop-chocolate.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-ice-cream-scoop-mint",
+    "pack": "food-kit",
+    "name": "Ice Cream Scoop Mint",
+    "filename": "ice-cream-scoop-mint.glb",
+    "glb": "/models-pack/food-kit/ice-cream-scoop-mint.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-ice-cream",
+    "pack": "food-kit",
+    "name": "Ice Cream",
+    "filename": "ice-cream.glb",
+    "glb": "/models-pack/food-kit/ice-cream.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-knife-block",
+    "pack": "food-kit",
+    "name": "Knife Block",
+    "filename": "knife-block.glb",
+    "glb": "/models-pack/food-kit/knife-block.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-leek",
+    "pack": "food-kit",
+    "name": "Leek",
+    "filename": "leek.glb",
+    "glb": "/models-pack/food-kit/leek.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-lemon-half",
+    "pack": "food-kit",
+    "name": "Lemon Half",
+    "filename": "lemon-half.glb",
+    "glb": "/models-pack/food-kit/lemon-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-lemon",
+    "pack": "food-kit",
+    "name": "Lemon",
+    "filename": "lemon.glb",
+    "glb": "/models-pack/food-kit/lemon.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-loaf-baguette",
+    "pack": "food-kit",
+    "name": "Loaf Baguette",
+    "filename": "loaf-baguette.glb",
+    "glb": "/models-pack/food-kit/loaf-baguette.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-loaf-round",
+    "pack": "food-kit",
+    "name": "Loaf Round",
+    "filename": "loaf-round.glb",
+    "glb": "/models-pack/food-kit/loaf-round.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-loaf",
+    "pack": "food-kit",
+    "name": "Loaf",
+    "filename": "loaf.glb",
+    "glb": "/models-pack/food-kit/loaf.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-lollypop",
+    "pack": "food-kit",
+    "name": "Lollypop",
+    "filename": "lollypop.glb",
+    "glb": "/models-pack/food-kit/lollypop.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-maki-roe",
+    "pack": "food-kit",
+    "name": "Maki Roe",
+    "filename": "maki-roe.glb",
+    "glb": "/models-pack/food-kit/maki-roe.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-maki-salmon",
+    "pack": "food-kit",
+    "name": "Maki Salmon",
+    "filename": "maki-salmon.glb",
+    "glb": "/models-pack/food-kit/maki-salmon.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-maki-vegetable",
+    "pack": "food-kit",
+    "name": "Maki Vegetable",
+    "filename": "maki-vegetable.glb",
+    "glb": "/models-pack/food-kit/maki-vegetable.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-meat-cooked",
+    "pack": "food-kit",
+    "name": "Meat Cooked",
+    "filename": "meat-cooked.glb",
+    "glb": "/models-pack/food-kit/meat-cooked.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-meat-patty",
+    "pack": "food-kit",
+    "name": "Meat Patty",
+    "filename": "meat-patty.glb",
+    "glb": "/models-pack/food-kit/meat-patty.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-meat-raw",
+    "pack": "food-kit",
+    "name": "Meat Raw",
+    "filename": "meat-raw.glb",
+    "glb": "/models-pack/food-kit/meat-raw.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-meat-ribs",
+    "pack": "food-kit",
+    "name": "Meat Ribs",
+    "filename": "meat-ribs.glb",
+    "glb": "/models-pack/food-kit/meat-ribs.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-meat-sausage",
+    "pack": "food-kit",
+    "name": "Meat Sausage",
+    "filename": "meat-sausage.glb",
+    "glb": "/models-pack/food-kit/meat-sausage.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-meat-tenderizer",
+    "pack": "food-kit",
+    "name": "Meat Tenderizer",
+    "filename": "meat-tenderizer.glb",
+    "glb": "/models-pack/food-kit/meat-tenderizer.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mincemeat-pie",
+    "pack": "food-kit",
+    "name": "Mincemeat Pie",
+    "filename": "mincemeat-pie.glb",
+    "glb": "/models-pack/food-kit/mincemeat-pie.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mortar-pestle",
+    "pack": "food-kit",
+    "name": "Mortar Pestle",
+    "filename": "mortar-pestle.glb",
+    "glb": "/models-pack/food-kit/mortar-pestle.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mortar",
+    "pack": "food-kit",
+    "name": "Mortar",
+    "filename": "mortar.glb",
+    "glb": "/models-pack/food-kit/mortar.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-muffin",
+    "pack": "food-kit",
+    "name": "Muffin",
+    "filename": "muffin.glb",
+    "glb": "/models-pack/food-kit/muffin.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mug",
+    "pack": "food-kit",
+    "name": "Mug",
+    "filename": "mug.glb",
+    "glb": "/models-pack/food-kit/mug.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mushroom-half",
+    "pack": "food-kit",
+    "name": "Mushroom Half",
+    "filename": "mushroom-half.glb",
+    "glb": "/models-pack/food-kit/mushroom-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mushroom",
+    "pack": "food-kit",
+    "name": "Mushroom",
+    "filename": "mushroom.glb",
+    "glb": "/models-pack/food-kit/mushroom.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mussel-open",
+    "pack": "food-kit",
+    "name": "Mussel Open",
+    "filename": "mussel-open.glb",
+    "glb": "/models-pack/food-kit/mussel-open.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-mussel",
+    "pack": "food-kit",
+    "name": "Mussel",
+    "filename": "mussel.glb",
+    "glb": "/models-pack/food-kit/mussel.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-onion-half",
+    "pack": "food-kit",
+    "name": "Onion Half",
+    "filename": "onion-half.glb",
+    "glb": "/models-pack/food-kit/onion-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-onion",
+    "pack": "food-kit",
+    "name": "Onion",
+    "filename": "onion.glb",
+    "glb": "/models-pack/food-kit/onion.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-orange",
+    "pack": "food-kit",
+    "name": "Orange",
+    "filename": "orange.glb",
+    "glb": "/models-pack/food-kit/orange.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pan-stew",
+    "pack": "food-kit",
+    "name": "Pan Stew",
+    "filename": "pan-stew.glb",
+    "glb": "/models-pack/food-kit/pan-stew.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pan",
+    "pack": "food-kit",
+    "name": "Pan",
+    "filename": "pan.glb",
+    "glb": "/models-pack/food-kit/pan.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pancakes",
+    "pack": "food-kit",
+    "name": "Pancakes",
+    "filename": "pancakes.glb",
+    "glb": "/models-pack/food-kit/pancakes.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-paprika-slice",
+    "pack": "food-kit",
+    "name": "Paprika Slice",
+    "filename": "paprika-slice.glb",
+    "glb": "/models-pack/food-kit/paprika-slice.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-paprika",
+    "pack": "food-kit",
+    "name": "Paprika",
+    "filename": "paprika.glb",
+    "glb": "/models-pack/food-kit/paprika.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-peanut-butter",
+    "pack": "food-kit",
+    "name": "Peanut Butter",
+    "filename": "peanut-butter.glb",
+    "glb": "/models-pack/food-kit/peanut-butter.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pear-half",
+    "pack": "food-kit",
+    "name": "Pear Half",
+    "filename": "pear-half.glb",
+    "glb": "/models-pack/food-kit/pear-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pear",
+    "pack": "food-kit",
+    "name": "Pear",
+    "filename": "pear.glb",
+    "glb": "/models-pack/food-kit/pear.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pepper-mill",
+    "pack": "food-kit",
+    "name": "Pepper Mill",
+    "filename": "pepper-mill.glb",
+    "glb": "/models-pack/food-kit/pepper-mill.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pepper",
+    "pack": "food-kit",
+    "name": "Pepper",
+    "filename": "pepper.glb",
+    "glb": "/models-pack/food-kit/pepper.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pie",
+    "pack": "food-kit",
+    "name": "Pie",
+    "filename": "pie.glb",
+    "glb": "/models-pack/food-kit/pie.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pineapple",
+    "pack": "food-kit",
+    "name": "Pineapple",
+    "filename": "pineapple.glb",
+    "glb": "/models-pack/food-kit/pineapple.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pizza-box",
+    "pack": "food-kit",
+    "name": "Pizza Box",
+    "filename": "pizza-box.glb",
+    "glb": "/models-pack/food-kit/pizza-box.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pizza-cutter",
+    "pack": "food-kit",
+    "name": "Pizza Cutter",
+    "filename": "pizza-cutter.glb",
+    "glb": "/models-pack/food-kit/pizza-cutter.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pizza",
+    "pack": "food-kit",
+    "name": "Pizza",
+    "filename": "pizza.glb",
+    "glb": "/models-pack/food-kit/pizza.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-plate-broken",
+    "pack": "food-kit",
+    "name": "Plate Broken",
+    "filename": "plate-broken.glb",
+    "glb": "/models-pack/food-kit/plate-broken.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-plate-deep",
+    "pack": "food-kit",
+    "name": "Plate Deep",
+    "filename": "plate-deep.glb",
+    "glb": "/models-pack/food-kit/plate-deep.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-plate-dinner",
+    "pack": "food-kit",
+    "name": "Plate Dinner",
+    "filename": "plate-dinner.glb",
+    "glb": "/models-pack/food-kit/plate-dinner.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-plate-rectangle",
+    "pack": "food-kit",
+    "name": "Plate Rectangle",
+    "filename": "plate-rectangle.glb",
+    "glb": "/models-pack/food-kit/plate-rectangle.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-plate-sauerkraut",
+    "pack": "food-kit",
+    "name": "Plate Sauerkraut",
+    "filename": "plate-sauerkraut.glb",
+    "glb": "/models-pack/food-kit/plate-sauerkraut.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-plate",
+    "pack": "food-kit",
+    "name": "Plate",
+    "filename": "plate.glb",
+    "glb": "/models-pack/food-kit/plate.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-popsicle-chocolate",
+    "pack": "food-kit",
+    "name": "Popsicle Chocolate",
+    "filename": "popsicle-chocolate.glb",
+    "glb": "/models-pack/food-kit/popsicle-chocolate.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-popsicle-stick",
+    "pack": "food-kit",
+    "name": "Popsicle Stick",
+    "filename": "popsicle-stick.glb",
+    "glb": "/models-pack/food-kit/popsicle-stick.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-popsicle",
+    "pack": "food-kit",
+    "name": "Popsicle",
+    "filename": "popsicle.glb",
+    "glb": "/models-pack/food-kit/popsicle.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pot-lid",
+    "pack": "food-kit",
+    "name": "Pot Lid",
+    "filename": "pot-lid.glb",
+    "glb": "/models-pack/food-kit/pot-lid.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pot-stew-lid",
+    "pack": "food-kit",
+    "name": "Pot Stew Lid",
+    "filename": "pot-stew-lid.glb",
+    "glb": "/models-pack/food-kit/pot-stew-lid.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pot-stew",
+    "pack": "food-kit",
+    "name": "Pot Stew",
+    "filename": "pot-stew.glb",
+    "glb": "/models-pack/food-kit/pot-stew.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pot",
+    "pack": "food-kit",
+    "name": "Pot",
+    "filename": "pot.glb",
+    "glb": "/models-pack/food-kit/pot.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pudding",
+    "pack": "food-kit",
+    "name": "Pudding",
+    "filename": "pudding.glb",
+    "glb": "/models-pack/food-kit/pudding.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pumpkin-basic",
+    "pack": "food-kit",
+    "name": "Pumpkin Basic",
+    "filename": "pumpkin-basic.glb",
+    "glb": "/models-pack/food-kit/pumpkin-basic.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-pumpkin",
+    "pack": "food-kit",
+    "name": "Pumpkin",
+    "filename": "pumpkin.glb",
+    "glb": "/models-pack/food-kit/pumpkin.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-radish",
+    "pack": "food-kit",
+    "name": "Radish",
+    "filename": "radish.glb",
+    "glb": "/models-pack/food-kit/radish.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-rice-ball",
+    "pack": "food-kit",
+    "name": "Rice Ball",
+    "filename": "rice-ball.glb",
+    "glb": "/models-pack/food-kit/rice-ball.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-rollingPin",
+    "pack": "food-kit",
+    "name": "RollingPin",
+    "filename": "rollingPin.glb",
+    "glb": "/models-pack/food-kit/rollingPin.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-salad",
+    "pack": "food-kit",
+    "name": "Salad",
+    "filename": "salad.glb",
+    "glb": "/models-pack/food-kit/salad.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-sandwich",
+    "pack": "food-kit",
+    "name": "Sandwich",
+    "filename": "sandwich.glb",
+    "glb": "/models-pack/food-kit/sandwich.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-sausage-half",
+    "pack": "food-kit",
+    "name": "Sausage Half",
+    "filename": "sausage-half.glb",
+    "glb": "/models-pack/food-kit/sausage-half.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-sausage",
+    "pack": "food-kit",
+    "name": "Sausage",
+    "filename": "sausage.glb",
+    "glb": "/models-pack/food-kit/sausage.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-shaker-pepper",
+    "pack": "food-kit",
+    "name": "Shaker Pepper",
+    "filename": "shaker-pepper.glb",
+    "glb": "/models-pack/food-kit/shaker-pepper.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-shaker-salt",
+    "pack": "food-kit",
+    "name": "Shaker Salt",
+    "filename": "shaker-salt.glb",
+    "glb": "/models-pack/food-kit/shaker-salt.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-skewer-vegetables",
+    "pack": "food-kit",
+    "name": "Skewer Vegetables",
+    "filename": "skewer-vegetables.glb",
+    "glb": "/models-pack/food-kit/skewer-vegetables.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-skewer",
+    "pack": "food-kit",
+    "name": "Skewer",
+    "filename": "skewer.glb",
+    "glb": "/models-pack/food-kit/skewer.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-soda-bottle",
+    "pack": "food-kit",
+    "name": "Soda Bottle",
+    "filename": "soda-bottle.glb",
+    "glb": "/models-pack/food-kit/soda-bottle.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-soda-can-crushed",
+    "pack": "food-kit",
+    "name": "Soda Can Crushed",
+    "filename": "soda-can-crushed.glb",
+    "glb": "/models-pack/food-kit/soda-can-crushed.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-soda-can",
+    "pack": "food-kit",
+    "name": "Soda Can",
+    "filename": "soda-can.glb",
+    "glb": "/models-pack/food-kit/soda-can.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-soda-glass",
+    "pack": "food-kit",
+    "name": "Soda Glass",
+    "filename": "soda-glass.glb",
+    "glb": "/models-pack/food-kit/soda-glass.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-soda",
+    "pack": "food-kit",
+    "name": "Soda",
+    "filename": "soda.glb",
+    "glb": "/models-pack/food-kit/soda.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-soy",
+    "pack": "food-kit",
+    "name": "Soy",
+    "filename": "soy.glb",
+    "glb": "/models-pack/food-kit/soy.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-steamer",
+    "pack": "food-kit",
+    "name": "Steamer",
+    "filename": "steamer.glb",
+    "glb": "/models-pack/food-kit/steamer.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-strawberry",
+    "pack": "food-kit",
+    "name": "Strawberry",
+    "filename": "strawberry.glb",
+    "glb": "/models-pack/food-kit/strawberry.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-styrofoam-dinner",
+    "pack": "food-kit",
+    "name": "Styrofoam Dinner",
+    "filename": "styrofoam-dinner.glb",
+    "glb": "/models-pack/food-kit/styrofoam-dinner.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-styrofoam",
+    "pack": "food-kit",
+    "name": "Styrofoam",
+    "filename": "styrofoam.glb",
+    "glb": "/models-pack/food-kit/styrofoam.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-sub",
+    "pack": "food-kit",
+    "name": "Sub",
+    "filename": "sub.glb",
+    "glb": "/models-pack/food-kit/sub.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-sundae",
+    "pack": "food-kit",
+    "name": "Sundae",
+    "filename": "sundae.glb",
+    "glb": "/models-pack/food-kit/sundae.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-sushi-egg",
+    "pack": "food-kit",
+    "name": "Sushi Egg",
+    "filename": "sushi-egg.glb",
+    "glb": "/models-pack/food-kit/sushi-egg.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-sushi-salmon",
+    "pack": "food-kit",
+    "name": "Sushi Salmon",
+    "filename": "sushi-salmon.glb",
+    "glb": "/models-pack/food-kit/sushi-salmon.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-taco",
+    "pack": "food-kit",
+    "name": "Taco",
+    "filename": "taco.glb",
+    "glb": "/models-pack/food-kit/taco.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-tajine-lid",
+    "pack": "food-kit",
+    "name": "Tajine Lid",
+    "filename": "tajine-lid.glb",
+    "glb": "/models-pack/food-kit/tajine-lid.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-tajine",
+    "pack": "food-kit",
+    "name": "Tajine",
+    "filename": "tajine.glb",
+    "glb": "/models-pack/food-kit/tajine.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-tomato-slice",
+    "pack": "food-kit",
+    "name": "Tomato Slice",
+    "filename": "tomato-slice.glb",
+    "glb": "/models-pack/food-kit/tomato-slice.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-tomato",
+    "pack": "food-kit",
+    "name": "Tomato",
+    "filename": "tomato.glb",
+    "glb": "/models-pack/food-kit/tomato.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-turkey",
+    "pack": "food-kit",
+    "name": "Turkey",
+    "filename": "turkey.glb",
+    "glb": "/models-pack/food-kit/turkey.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-utensil-fork",
+    "pack": "food-kit",
+    "name": "Utensil Fork",
+    "filename": "utensil-fork.glb",
+    "glb": "/models-pack/food-kit/utensil-fork.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-utensil-knife",
+    "pack": "food-kit",
+    "name": "Utensil Knife",
+    "filename": "utensil-knife.glb",
+    "glb": "/models-pack/food-kit/utensil-knife.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-utensil-spoon",
+    "pack": "food-kit",
+    "name": "Utensil Spoon",
+    "filename": "utensil-spoon.glb",
+    "glb": "/models-pack/food-kit/utensil-spoon.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-waffle",
+    "pack": "food-kit",
+    "name": "Waffle",
+    "filename": "waffle.glb",
+    "glb": "/models-pack/food-kit/waffle.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-watermelon",
+    "pack": "food-kit",
+    "name": "Watermelon",
+    "filename": "watermelon.glb",
+    "glb": "/models-pack/food-kit/watermelon.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-whipped-cream",
+    "pack": "food-kit",
+    "name": "Whipped Cream",
+    "filename": "whipped-cream.glb",
+    "glb": "/models-pack/food-kit/whipped-cream.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-whisk",
+    "pack": "food-kit",
+    "name": "Whisk",
+    "filename": "whisk.glb",
+    "glb": "/models-pack/food-kit/whisk.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-whole-ham",
+    "pack": "food-kit",
+    "name": "Whole Ham",
+    "filename": "whole-ham.glb",
+    "glb": "/models-pack/food-kit/whole-ham.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-wholer-ham",
+    "pack": "food-kit",
+    "name": "Wholer Ham",
+    "filename": "wholer-ham.glb",
+    "glb": "/models-pack/food-kit/wholer-ham.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-wine-red",
+    "pack": "food-kit",
+    "name": "Wine Red",
+    "filename": "wine-red.glb",
+    "glb": "/models-pack/food-kit/wine-red.glb",
+    "category": "food"
+  },
+  {
+    "id": "kenney-foodkit-wine-white",
+    "pack": "food-kit",
+    "name": "Wine White",
+    "filename": "wine-white.glb",
+    "glb": "/models-pack/food-kit/wine-white.glb",
+    "category": "food"
+  }
+]
