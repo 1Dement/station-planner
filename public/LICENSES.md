@@ -26,6 +26,16 @@ Cand este integrat un model Sketchfab CC-BY 4.0, atribuire obligatorie aici + (r
 - **"Grocery Store Shelf"** by [mizorri93](https://sketchfab.com/mizorri93) — CC-BY 4.0 — used in `models/O6-G03.glb` (`o6-g03` Raft Magazin Multifuncțional)
   - Source: https://sketchfab.com/3d-models/grocery-store-shelf-fe8010f2d2e4495599506deb4af9da9d
 
+## Kenney CC0 (Public Domain)
+
+- **"Mini Market" asset pack** by [Kenney](https://kenney.nl) — CC0 — used in:
+  - `models/O7-K01.glb` (`o7-k01` Insulă Capac Gondolă) — shelf-end
+  - `models/O8-K02.glb` (`o8-k02` Insulă Display Fructe/Snacks) — display-fruit
+  - `models/O9-K03.glb` (`o9-k03` Display Pâine/Patiserie) — display-bread
+  - `models/O10-K04.glb` (`o10-k04` Casă Marcat Kenney) — cash-register
+  - `models/O11-K05.glb` (`o11-k05` Cărucior Cumpărături) — shopping-cart
+  - Source pack: https://kenney.nl/assets/mini-market
+
 ## 3D Warehouse Models
 
 Trimble 3D Warehouse — General Model License. Free use in app embed, NO standalone redistribution.
