@@ -21,6 +21,10 @@ Cand este integrat un model Sketchfab CC-BY 4.0, atribuire obligatorie aici + (r
   - Source: https://sketchfab.com/3d-models/supermarket-drinks-shelf-asset-4f22309bf38e4941a3ea2237ac886acb
 - **"Vintage Coca-Cola Fridge — Realistic 3D Asset"** by Sketchfab community author — CC-BY 4.0 — used in `models/O4-F02.glb` (`o4-f02` Frigider Coca-Cola Vintage)
   - Attribution TBD — verify author handle on download page
+- **"Supermarket Potato Chips Shelf Asset"** by [Rendevr](https://sketchfab.com/Rendevr) — CC-BY 4.0 — used in `models/O5-G02.glb` (`o5-g02` Gondolă Snacks OMV)
+  - Source: https://sketchfab.com/3d-models/supermarket-potato-chips-shelf-asset-4e4ccc3074f0474bbfa23611c46a4029
+- **"Grocery Store Shelf"** by [mizorri93](https://sketchfab.com/mizorri93) — CC-BY 4.0 — used in `models/O6-G03.glb` (`o6-g03` Raft Magazin Multifuncțional)
+  - Source: https://sketchfab.com/3d-models/grocery-store-shelf-fe8010f2d2e4495599506deb4af9da9d
 
 ## 3D Warehouse Models
 
