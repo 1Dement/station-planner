@@ -424,7 +424,7 @@ export default function SceneEditor() {
 
     // Wall snap
     if (wallSegmentsRef.current.length > 0) {
-      const r = snapToWall(nx, nz, obj.dimensions.depth, wallSegmentsRef.current, 0.6);
+      const r = snapToWall(nx, nz, obj.dimensions.depth, wallSegmentsRef.current, 0.2);
       if (r.snapped) {
         nx = r.x; nz = r.z; obj.mesh.rotation.y = r.rotation;
         snappedWall = true;
@@ -441,8 +441,8 @@ export default function SceneEditor() {
       }
     }
 
-    // Tetris snap to other objects (object-to-object) — wider tolerance so it triggers easier
-    const SNAP_T = 0.25;
+    // Tetris snap to other objects (object-to-object) — 10cm tolerance per user spec
+    const SNAP_T = 0.10;
     for (const other of objectsRef.current) {
       if (other.id === obj.id) continue;
       const ox = other.mesh.position.x, oz = other.mesh.position.z;
