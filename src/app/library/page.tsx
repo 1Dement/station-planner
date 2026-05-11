@@ -33,7 +33,6 @@ export default function LibraryPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#e8e8e8', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <header style={{ borderBottom: '1px solid #1f1f2a', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Link href="/" style={{ color: '#c9a227', textDecoration: 'none', fontWeight: 600 }}>← Editor</Link>
         <h1 style={{ margin: 0, fontSize: 20, color: '#c9a227', fontFamily: 'Space Grotesk, Inter, sans-serif' }}>Catalog Mobilier &amp; Echipamente Stație</h1>
         <span style={{ marginLeft: 'auto', fontSize: 13, color: '#888' }}>
           {filtered.length} / {CATALOG.length} items · {with3DCount} cu model 3D real
