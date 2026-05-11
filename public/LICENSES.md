@@ -26,6 +26,19 @@ Cand este integrat un model Sketchfab CC-BY 4.0, atribuire obligatorie aici + (r
 - **"Grocery Store Shelf"** by [mizorri93](https://sketchfab.com/mizorri93) — CC-BY 4.0 — used in `models/O6-G03.glb` (`o6-g03` Raft Magazin Multifuncțional)
   - Source: https://sketchfab.com/3d-models/grocery-store-shelf-fe8010f2d2e4495599506deb4af9da9d
 
+### Batch 2 (11 Mai 2026) — Picker Approved
+
+- **"Product Gondola"** by [MrEsper](https://sketchfab.com/MrEsper) — CC-BY 4.0 — `O7-G04.glb` (`o7-g04` Pringles/Heineken)
+- **"Store Shelves"** by [Peter_D](https://sketchfab.com/Peter_D) — CC-BY 4.0 — `O8-G05.glb` (`o8-g05`)
+- **"Magazine Rack Full of Geo Articles"** by [B._.render](https://sketchfab.com/B._.render) — CC-BY 4.0 — `O9-G06.glb` (`o9-g06`)
+- **"EV Charger Pole Pro"** by [v2c](https://sketchfab.com/v2c) — CC-BY 4.0 — `O10-E01.glb` (`o10-e01`)
+- **"Saeco Poemia Espresso"** by [BonchBryBonch](https://sketchfab.com/BonchBryBonch) — CC-BY 4.0 — `O11-C02.glb` (`o11-c02`)
+- **"Beverages Refrigerator"** by [mizorri93](https://sketchfab.com/mizorri93) — CC-BY 4.0 — `O12-F03.glb` (`o12-f03`)
+- **"Commercial Fridge"** by [foon.](https://sketchfab.com/foon.) — CC-BY 4.0 — `O13-F04.glb` (`o13-f04`)
+- **"Ice Cream Refrigerator"** by [Kirillwq](https://sketchfab.com/Kirillwq) — CC-BY 4.0 — `O14-F05.glb` (`o14-f05`)
+- **"POS Terminal Cash Register"** by [dgsamples](https://sketchfab.com/dgsamples) — CC-BY 4.0 — `O15-T01.glb` (`o15-t01`)
+- **"Commercial Garbage Bin Outdoor 2"** by [3dlakour](https://sketchfab.com/3dlakour) — CC-BY 4.0 — `O16-O02.glb` (`o16-o02`)
+
 
 ## 3D Warehouse Models
 
