@@ -1,7 +1,3 @@
-'use client';
-
-import Link from 'next/link';
-
 export default function Home() {
   return (
     <div style={{
@@ -17,37 +13,23 @@ export default function Home() {
       gap: 24,
       textAlign: 'center',
     }}>
-      <div style={{ fontSize: 64 }}>🚧</div>
+      <div style={{ fontSize: 72 }}>🚧</div>
       <h1 style={{
         margin: 0,
-        fontSize: 32,
+        fontSize: 36,
         color: '#c9a227',
         fontFamily: 'Space Grotesk, Inter, sans-serif',
         letterSpacing: 0.5,
+        maxWidth: 720,
+        lineHeight: 1.3,
       }}>
-        Station Planner — În mentenanță
+        Mentenanță Site — Reorganizare Stație
       </h1>
-      <p style={{ maxWidth: 520, fontSize: 15, color: '#bbb', lineHeight: 1.6, margin: 0 }}>
-        Editorul 3D este dezactivat temporar. Catalogul de modele 3D rămâne disponibil pentru browsing.
+      <p style={{ fontSize: 18, color: '#bbb', margin: 0 }}>
+        Revenim curând.
       </p>
-      <Link
-        href="/library"
-        style={{
-          background: '#c9a227',
-          color: '#0a0a0f',
-          padding: '14px 32px',
-          borderRadius: 8,
-          fontWeight: 700,
-          fontSize: 15,
-          textDecoration: 'none',
-          letterSpacing: 0.5,
-          marginTop: 8,
-        }}
-      >
-        📚 Vezi catalog 3D →
-      </Link>
       <div style={{ fontSize: 11, color: '#555', marginTop: 32 }}>
-        UGA Aerial · Station Planner 3D
+        UGA Aerial
       </div>
     </div>
   );
